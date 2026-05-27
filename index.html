@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal Finance Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    #drop-zone.dragover {
+      background-color: #eef2ff;
+      border-color: #6366f1;
+    }
+    #toast {
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    #toast.hidden {
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+    }
+    .kpi-card {
+      transition: transform 0.15s ease;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+    }
+    ::-webkit-scrollbar { height: 6px; width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+
+  <!-- TOAST -->
+  <div id="toast" class="hidden fixed top-4 right-4 z-50 bg-white shadow-lg border border-slate-200 rounded-xl px-5 py-3 flex items-center gap-3 text-sm max-w-sm"></div>
+
+  <!-- NAVBAR -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">💰</span>
+        <h1 class="text-lg font-bold text-slate-800 tracking-tight">Personal Finance Manager</h1>
+      </div>
+      <div class="flex items-center gap-3 text-sm">
+        <span id="data-status" class="flex items-center gap-1.5 text-slate-400">
+          <span class="inline-block w-2 h-2 rounded-full bg-slate-300"></span>
+          Nessun dato caricato
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+
+    <!-- KPI CARDS -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="kpi-section">
+      <div class="kpi-card bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Bilancio Totale</p>
+        <p id="kpi-bilancio" class="text-2xl font-bold mt-1 text-slate-800">&euro; 0,00</p>
+      </div>
+      <div class="kpi-card bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Totale Entrate</p>
+        <p id="kpi-entrate" class="text-2xl font-bold mt-1 text-emerald-600">&euro; 0,00</p>
+      </div>
+      <div class="kpi-card bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Totale Uscite</p>
+        <p id="kpi-uscite" class="text-2xl font-bold mt-1 text-red-500">&euro; 0,00</p>
+      </div>
+      <div class="kpi-card bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Risparmio Netto</p>
+        <p id="kpi-risparmio" class="text-2xl font-bold mt-1 text-slate-800">--</p>
+      </div>
+    </section>
+
+    <!-- MAIN GRID: sidebar + content -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- SIDEBAR: Import -->
+      <aside class="lg:col-span-3">
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-5">
+
+          <div>
+            <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Banca di Origine</label>
+            <select id="bank-select" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none bg-white">
+              <option value="intesa">Intesa Sanpaolo</option>
+              <option value="revolut">Revolut</option>
+              <option value="paypal">PayPal</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Carica CSV / Excel</label>
+            <div id="drop-zone" class="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center cursor-pointer hover:border-indigo-400 transition-colors">
+              <p class="text-sm text-slate-500">Trascina il file qui</p>
+              <p class="text-xs text-slate-400 mt-0.5">oppure clicca per selezionare</p>
+              <input id="csv-input" type="file" accept=".csv,.xlsx,.xls" class="hidden">
+            </div>
+          </div>
+
+          <hr class="border-slate-200">
+
+          <div>
+            <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Ripristina CSV FlowTrack</label>
+            <input id="ft-import-input" type="file" accept=".csv" class="block w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+            <p class="text-xs text-slate-400 mt-1">Carica un CSV esportato da FlowTrack</p>
+          </div>
+
+          <hr class="border-slate-200">
+
+          <button id="reset-btn" class="w-full bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg px-4 py-2.5 transition-colors border border-red-200">
+            Cancella tutti i dati
+          </button>
+        </div>
+
+        <!-- Legenda categorie -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mt-4">
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Categorie</p>
+          <div class="space-y-1.5 text-sm" id="category-legend"></div>
+          <div class="mt-1">
+            <button id="show-add-cat-btn" class="w-full flex items-center justify-center gap-1 py-1.5 text-xs text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-dashed border-slate-300 hover:border-indigo-300 transition-colors">+ Nuova categoria</button>
+            <div id="add-cat-form" class="hidden mt-2 space-y-1.5">
+              <div class="flex items-center gap-1">
+                <input id="new-cat-name" type="text" placeholder="Nome" class="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+                <input id="new-cat-color" type="color" value="#6366f1" class="w-7 h-7 p-0.5 border border-slate-300 rounded cursor-pointer flex-none">
+                <button id="confirm-add-cat-btn" class="bg-indigo-600 text-white w-7 h-7 rounded text-sm font-medium hover:bg-indigo-700 flex-none flex items-center justify-center">&#10003;</button>
+                <button id="cancel-add-cat-btn" class="text-slate-400 hover:text-slate-600 w-7 h-7 flex-none flex items-center justify-center text-sm">&#10005;</button>
+              </div>
+              <div id="icon-picker" class="flex flex-wrap gap-0.5"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Regole Personalizzate -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mt-4">
+          <button id="rules-toggle" class="flex items-center justify-between w-full text-left group">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-slate-700 transition-colors">Regole Personalizzate</span>
+            <span id="rules-toggle-icon" class="text-slate-400 transition-transform text-xs group-hover:text-slate-600">&#9660;</span>
+          </button>
+          <div id="rules-panel" class="mt-3 text-sm hidden">
+            <div class="flex items-center gap-1.5 mb-3">
+              <input id="new-rule-keywords" type="text" placeholder="es. rimborso, reso" class="flex-1 min-w-0 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+              <select id="new-rule-category" class="w-auto border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white outline-none focus:ring-1 focus:ring-indigo-400"></select>
+              <button id="add-rule-btn" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 w-7 h-7 rounded-lg text-lg font-medium transition-colors flex-none flex items-center justify-center">+</button>
+            </div>
+            <div id="custom-rules-list" class="space-y-1 max-h-40 overflow-y-auto"></div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CONTENT: Charts + Table -->
+      <div class="lg:col-span-9 space-y-6">
+
+        <!-- CHARTS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-semibold text-slate-600">Spese per Categoria</p>
+              <select id="chart-type-select" class="text-xs border border-slate-300 rounded px-1.5 py-1 outline-none focus:ring-1 focus:ring-indigo-400 bg-white">
+                <option value="doughnut">Ciambella</option>
+                <option value="pie">Torta</option>
+                <option value="bar">Barre</option>
+                <option value="polarArea">Polar</option>
+                <option value="radar">Radar</option>
+              </select>
+            </div>
+            <div class="relative h-60"><canvas id="donut-chart"></canvas></div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-semibold text-slate-600">Entrate vs Uscite</p>
+              <select id="barchart-type-select" class="text-xs border border-slate-300 rounded px-1.5 py-1 outline-none focus:ring-1 focus:ring-indigo-400 bg-white">
+                <option value="bar">Barre</option>
+                <option value="doughnut">Ciambella</option>
+                <option value="pie">Torta</option>
+                <option value="polarArea">Polar</option>
+                <option value="radar">Radar</option>
+              </select>
+            </div>
+            <div class="relative h-60"><canvas id="bar-chart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- FILTERS -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm font-semibold text-slate-600">Registro Transazioni <span id="tx-count" class="text-xs font-normal text-slate-400"></span>
+            <button id="show-add-tx" class="text-xs font-normal text-indigo-600 hover:text-indigo-800 ml-2">+ Aggiungi</button>
+          </p>
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="filter-bank" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
+              <option value="">Tutte le banche</option>
+              <option value="Intesa Sanpaolo">Intesa Sanpaolo</option>
+              <option value="Revolut">Revolut</option>
+              <option value="PayPal">PayPal</option>
+            </select>
+            <select id="filter-category" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
+              <option value="">Tutte le categorie</option>
+            </select>
+            <select id="filter-type" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
+              <option value="">Entrate e Uscite</option>
+              <option value="entrate">Solo Entrate</option>
+              <option value="uscite">Solo Uscite</option>
+            </select>
+            <select id="filter-year" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
+              <option value="">Tutti gli anni</option>
+            </select>
+            <select id="filter-month" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
+              <option value="">Tutti i mesi</option>
+              <option value="1">Gennaio</option>
+              <option value="2">Febbraio</option>
+              <option value="3">Marzo</option>
+              <option value="4">Aprile</option>
+              <option value="5">Maggio</option>
+              <option value="6">Giugno</option>
+              <option value="7">Luglio</option>
+              <option value="8">Agosto</option>
+              <option value="9">Settembre</option>
+              <option value="10">Ottobre</option>
+              <option value="11">Novembre</option>
+              <option value="12">Dicembre</option>
+            </select>
+            <div class="relative flex-1 min-w-[180px]">
+              <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">&#128269;</span>
+              <input id="search-input" type="text" placeholder="Cerca descrizione o categoria..." class="w-full border border-slate-300 rounded-lg pl-7 pr-2 py-1.5 text-xs focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none">
+            </div>
+            <button id="export-csv-btn" class="text-xs border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-indigo-50 hover:border-indigo-300 transition-colors bg-white flex items-center gap-1">&#8595; CSV</button>
+          </div>
+        </div>
+
+        <!-- ADD TRANSACTION INLINE FORM -->
+        <div id="add-tx-form" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex flex-wrap items-end gap-2 mt-2">
+          <div class="flex flex-col gap-0.5">
+            <label class="text-[10px] text-slate-500 font-medium">Data</label>
+            <input id="add-tx-date" type="date" class="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+          </div>
+          <div class="flex flex-col gap-0.5 flex-1 min-w-[160px]">
+            <label class="text-[10px] text-slate-500 font-medium">Descrizione</label>
+            <input id="add-tx-desc" type="text" placeholder="es. Supermercato" class="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+          </div>
+          <div class="flex flex-col gap-0.5 w-[100px]">
+            <label class="text-[10px] text-slate-500 font-medium">Importo (&euro;)</label>
+            <input id="add-tx-amount" type="number" step="0.01" placeholder="0.00" class="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <label class="text-[10px] text-slate-500 font-medium">Banca</label>
+            <select id="add-tx-bank" class="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400 bg-white">
+              <option value="Intesa Sanpaolo">Intesa Sanpaolo</option>
+              <option value="Revolut">Revolut</option>
+              <option value="PayPal">PayPal</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <label class="text-[10px] text-slate-500 font-medium">Categoria</label>
+            <select id="add-tx-category" class="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400 bg-white"></select>
+          </div>
+          <button id="save-tx-btn" class="bg-indigo-600 text-white text-xs px-4 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors">Salva</button>
+          <button id="cancel-tx-btn" class="text-xs text-slate-500 px-2 py-1.5 hover:text-slate-700 transition-colors">Annulla</button>
+        </div>
+
+        <!-- TABLE -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
+              <tr>
+                <th class="sortable text-left px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="date">Data <span class="sort-arrow text-[10px]"></span></th>
+                <th class="sortable text-left px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="bank">Banca <span class="sort-arrow text-[10px]"></span></th>
+                <th class="sortable text-left px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="description">Descrizione <span class="sort-arrow text-[10px]"></span></th>
+                <th class="sortable text-left px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="category">Categoria <span class="sort-arrow text-[10px]"></span></th>
+                <th class="sortable text-right px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="amount">Importo <span class="sort-arrow text-[10px]"></span></th>
+              </tr>
+            </thead>
+            <tbody id="transactions-tbody" class="divide-y divide-slate-100">
+              <tr>
+                <td colspan="5" class="text-center text-slate-400 py-10">Nessuna transazione. Carica un file CSV o usa la simulazione API.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        <div id="pagination-bar" class="flex items-center justify-between text-xs text-slate-500 mt-2">
+          <div class="flex items-center gap-2">
+            <span>Righe per pagina:</span>
+            <select id="page-size-select" class="border border-slate-300 rounded px-1.5 py-1 outline-none focus:ring-1 focus:ring-indigo-400 bg-white">
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="0">Tutte</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2" id="page-nav">
+            <button id="first-page" class="px-2 py-1 rounded hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-300" disabled>&#171;</button>
+            <button id="prev-page" class="px-2 py-1 rounded hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-300" disabled>&#9664;</button>
+            <span id="page-info" class="text-slate-600"></span>
+            <button id="next-page" class="px-2 py-1 rounded hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-300" disabled>&#9654;</button>
+            <button id="last-page" class="px-2 py-1 rounded hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-300" disabled>&#187;</button>
+            </div>
+          </div>
+        </div>
+    </div>
+  </main>
+
+  <script>
+    // ======== STATO ========
+    let transactions = [];
+    let nextId = 1;
+    let chartType = 'doughnut';
+    let barChartType = 'bar';
+    let sortColumn = 'date';
+    let sortDirection = 'desc';
+    let pageSize = 25;
+    let currentPage = 1;
+    let donutChart = null;
+    let barChart = null;
+
+    // ======== CATEGORIE E COLORI ========
+    const CATEGORIES = [
+      { name: 'Alimentari & Spesa', color: '#f59e0b', icon: '🛒' },
+      { name: 'Intrattenimento', color: '#8b5cf6', icon: '🎬' },
+      { name: 'Abbonamenti', color: '#f97316', icon: '📋' },
+      { name: 'Shopping & Casa', color: '#ec4899', icon: '🛍️' },
+      { name: 'Trasporti & Auto', color: '#3b82f6', icon: '🚗' },
+      { name: 'Viaggi', color: '#14b8a6', icon: '✈️' },
+      { name: 'Stipendio & Entrate', color: '#10b981', icon: '💰' },
+      { name: 'Altro', color: '#94a3b8', icon: '📦' },
+    ];
+
+    const ICON_OPTIONS = [
+      '🛒','🎬','📋','🛍️','🚗','✈️','💰','📦','🏠','⚡','💡','📱','💻','🎮','🏋️',
+      '👕','🐱','🍕','☕','🎓','🏥','🎵','📺','🔧','🌿','🎁','💊','📚','🏢','🖥️',
+      '🍎','🥦','🥩','🧀','🍞','🥛','🧃','🍷','🍺','🍝','🥗','🍰','🍩','🍪','🧁',
+      '🚌','🚇','🚲','🏍️','🚢','🚁','🛵','🚃','🅿️','⛽','🔋','🛞','🗺️',
+      '🏥','💉','🩺','🦷','👁️','🧠','💪','🦴','🧬','💊','🩸',
+      '🎮','🕹️','🎯','🎲','♟️','🎨','🎭','🎪','🎤','🎧','🎸','🥁','🎹','🎺',
+      '🏀','⚽','⚾','🎾','🏐','🏈','🎱','🥊','🤸','🏆','🥇','🎽','🏄','🎿',
+      '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐸','🐵','🐔','🦄','🐴',
+      '🌸','🌺','🌻','🌹','🌷','🌲','🌳','🌴','🍁','🌾','☀️','🌙','⭐','🌈','☁️',
+      '❤️','🧡','💛','💚','💙','💜','🖤','🤍','💝','💖','💫','✨','🔥','💎',
+      '📱','💻','⌚','📷','🎥','📸','🖨️','💾','💿','📡','🔊','🎙️','📞','📟',
+      '🏠','🏡','🏢','🏭','🏗️','🏖️','⛺','🏕️','🏰','🗼','🌆','🌃','🎡','🎠',
+      '🚀','🛸','🌍','🌕','🔭','🧪','⚗️','🔬','🔮','🧿','🎭','🪄','🗿','🛡️',
+      '✉️','📩','📦','📎','📌','✂️','🗝️','🔑','🔒','🔓','🖊️','📝','📁','🗂️',
+      '🍼','🚼','🧸','🎈','🎉','🎊','🎀','🎄','🎃','🎅','🤶','🦌','🧊','🔥'
+    ];
+
+    function renderIconPicker(selectedIcon) {
+      const el = document.getElementById('icon-picker');
+      el.innerHTML = ICON_OPTIONS.map(icon =>
+        `<span class="icon-opt w-6 h-6 flex items-center justify-center text-sm rounded cursor-pointer hover:bg-indigo-100 ${icon === selectedIcon ? 'ring-2 ring-indigo-400 bg-indigo-50' : ''}" data-icon="${icon}">${icon}</span>`
+      ).join('');
+    }
+
+    const CATEGORY_RULES = [
+      { category: 'Alimentari & Spesa', keywords: ['esselunga','coop','conad','carrefour','lidl','md','eurospin','supermercato','alimentari','pam','d&g','sigma','cra','tigre'] },
+      { category: 'Intrattenimento', keywords: ['spotify','netflix','prime video','disney','dazn','cinema','now tv','sky','apple music','youtube premium'] },
+      { category: 'Abbonamenti', keywords: ['abbonamento','canone','palestra','vodafone','tim','wind','iliad','google one','icloud','dropbox','adobe','midjourney','chatgpt'] },
+      { category: 'Shopping & Casa', keywords: ['amazon','zara','h&m','ikea','ebay','leroy merlin','mediaworld','unieuro','decathlon','zalando','shein'] },
+      { category: 'Trasporti & Auto', keywords: ['eni','shell','q8','telepass','trenitalia','uber','atm','tper','flixbus','mooney','autostrada'] },
+      { category: 'Viaggi', keywords: ['hotel','booking','airbnb','volo','ryanair','expedia','viaggio','vacanza','hostel','b&b','ibis','traghetto','nave'] },
+      { category: 'Stipendio & Entrate', keywords: ['stipendio','bonifico a vostro favore','bonifico ricevuto','emolumenti','riversamento','ricarica','accredito','rimessa'] },
+    ];
+
+    // ======== STATO REGOLE PERSONALIZZATE ========
+    let customCategories = [];
+    let customRules = [];
+    try {
+      customCategories = JSON.parse(localStorage.getItem('ft_custom_categories')) || [];
+      customRules = JSON.parse(localStorage.getItem('ft_custom_rules')) || [];
+    } catch (e) {}
+
+    function saveCustomData() {
+      localStorage.setItem('ft_custom_categories', JSON.stringify(customCategories));
+      localStorage.setItem('ft_custom_rules', JSON.stringify(customRules));
+    }
+
+    function getAllCategories() {
+      return [...CATEGORIES, ...customCategories];
+    }
+
+    function refreshCustomRulesUI() {
+      const list = document.getElementById('custom-rules-list');
+      if (customRules.length === 0) {
+        list.innerHTML = '<p class="text-xs text-slate-400 italic text-center py-2">Nessuna regola personalizzata.</p>';
+        return;
+      }
+      list.innerHTML = customRules.map((rule, i) =>
+        `<div class="flex items-center justify-between bg-slate-50 hover:bg-slate-100 rounded-lg px-3 py-1.5 transition-colors group/rule">
+          <span class="text-xs text-slate-600">
+            <span class="font-medium text-slate-800">${rule.keywords.join(', ')}</span>
+            <span class="text-slate-400 mx-1">&rarr;</span>
+            <span>${getCategoryIcon(rule.category)} ${rule.category}</span>
+          </span>
+          <button class="delete-rule-btn text-red-300 hover:text-red-500 text-sm leading-none opacity-0 group-hover/rule:opacity-100 transition-opacity" data-index="${i}">&times;</button>
+        </div>`
+      ).join('');
+      list.querySelectorAll('.delete-rule-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const idx = parseInt(this.dataset.index);
+          customRules.splice(idx, 1);
+          saveCustomData();
+          refreshCustomRulesUI();
+          if (transactions.length > 0) {
+            recategorizeAll();
+            updateDashboard();
+          }
+        });
+      });
+    }
+
+    function updateRuleCategoryDropdown() {
+      const sel = document.getElementById('new-rule-category');
+      populateCategoryFilter(sel);
+    }
+
+    function addCustomCategory() {
+      const nameInput = document.getElementById('new-cat-name');
+      const colorInput = document.getElementById('new-cat-color');
+      const iconEl = document.querySelector('#icon-picker .ring-2');
+      const name = nameInput.value.trim();
+      if (!name) { showToast('Inserisci un nome per la categoria.', 'error'); return; }
+      const all = getAllCategories();
+      if (all.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+        showToast('Categoria già esistente.', 'error'); return;
+      }
+      customCategories.push({ name, color: colorInput.value, icon: iconEl ? iconEl.dataset.icon : '📦' });
+      saveCustomData();
+      nameInput.value = '';
+      document.getElementById('add-cat-form').classList.add('hidden');
+      document.getElementById('show-add-cat-btn').classList.remove('hidden');
+      renderIconPicker('🛒');
+      renderCategoryLegend();
+      updateRuleCategoryDropdown();
+      populateAddTxCategoryDropdown();
+      populateCategoryFilter();
+      showToast('Categoria "' + name + '" aggiunta.', 'success');
+    }
+
+    function addManualTransaction() {
+      const dateInput = document.getElementById('add-tx-date');
+      const descInput = document.getElementById('add-tx-desc');
+      const amountInput = document.getElementById('add-tx-amount');
+      const bankSelect = document.getElementById('add-tx-bank');
+      const catSelect = document.getElementById('add-tx-category');
+      const date = dateInput.value;
+      const description = descInput.value.trim();
+      const amount = parseFloat(amountInput.value);
+      const bank = bankSelect.value;
+      const category = catSelect.value;
+      if (!date) { showToast('Inserisci una data.', 'error'); return; }
+      if (!description) { showToast('Inserisci una descrizione.', 'error'); return; }
+      if (isNaN(amount) || amount === 0) { showToast('Inserisci un importo valido.', 'error'); return; }
+      if (!category) { showToast('Seleziona una categoria.', 'error'); return; }
+      transactions.push({ id: nextId++, date, description, amount, bank, category });
+      hideAddTxForm();
+      updateDashboard();
+      showToast('Transazione aggiunta.', 'success');
+    }
+
+    function showAddTxForm() {
+      document.getElementById('add-tx-form').classList.remove('hidden');
+      document.getElementById('add-tx-date').value = new Date().toISOString().slice(0, 10);
+      populateAddTxCategoryDropdown();
+    }
+
+    function hideAddTxForm() {
+      document.getElementById('add-tx-form').classList.add('hidden');
+    }
+
+    function addCustomRule() {
+      const kwInput = document.getElementById('new-rule-keywords');
+      const catSelect = document.getElementById('new-rule-category');
+      const raw = kwInput.value.trim();
+      if (!raw) { showToast('Inserisci almeno una parola chiave.', 'error'); return; }
+      const category = catSelect.value;
+      if (!category) { showToast('Seleziona una categoria.', 'error'); return; }
+      const keywords = raw.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
+      if (keywords.length === 0) { showToast('Inserisci parole chiave valide.', 'error'); return; }
+      customRules.push({ keywords, category });
+      saveCustomData();
+      kwInput.value = '';
+      refreshCustomRulesUI();
+      if (transactions.length > 0) {
+        recategorizeAll();
+        updateDashboard();
+      }
+      showToast('Regola aggiunta: ' + keywords.join(', ') + ' → ' + category, 'success');
+    }
+
+    function recategorizeAll() {
+      for (const tx of transactions) {
+        tx.category = categorize(tx.description, tx.amount);
+      }
+    }
+
+    // ======== UTILITY ========
+    function formatCurrency(amount) {
+      const abs = Math.abs(amount);
+      const formatted = abs.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return (amount < 0 ? '- ' : '') + '\u20AC ' + formatted;
+    }
+
+    function formatDate(dateStr) {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function parseItalianNumber(str) {
+      if (str == null || str.trim() === '') return 0;
+      let s = str.trim().replace(/\s/g, '');
+      if (s.includes(',')) {
+        s = s.replace(/\./g, '').replace(',', '.');
+      }
+      const val = parseFloat(s);
+      return isNaN(val) ? 0 : val;
+    }
+
+    function parseStandardNumber(str) {
+      if (str == null || str.trim() === '') return 0;
+      let s = str.trim().replace(/\s/g, '');
+      const val = parseFloat(s);
+      return isNaN(val) ? 0 : val;
+    }
+
+    function uuid() {
+      return 'tx_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+    }
+
+    function categorize(description, amount) {
+      const lower = description.toLowerCase();
+      for (const rule of customRules) {
+        for (const kw of rule.keywords) {
+          if (lower.includes(kw)) return rule.category;
+        }
+      }
+      for (const rule of CATEGORY_RULES) {
+        for (const kw of rule.keywords) {
+          if (lower.includes(kw)) return rule.category;
+        }
+      }
+      if (amount > 0) return 'Stipendio & Entrate';
+      return 'Altro';
+    }
+
+    function getCategoryColor(name) {
+      const all = getAllCategories();
+      const found = all.find(c => c.name === name);
+      return found ? found.color : '#94a3b8';
+    }
+
+    function getCategoryIcon(name) {
+      const all = getAllCategories();
+      const found = all.find(c => c.name === name);
+      return found ? (found.icon || '📦') : '📦';
+    }
+
+    // ======== TOAST ========
+    let toastTimeout = null;
+
+    function showToast(message, type) {
+      const el = document.getElementById('toast');
+      el.classList.remove('hidden');
+      el.className = 'fixed top-4 right-4 z-50 bg-white shadow-lg border rounded-xl px-5 py-3 flex items-center gap-3 text-sm max-w-sm';
+      if (type === 'success') {
+        el.classList.add('border-emerald-200', 'text-emerald-700');
+        el.innerHTML = `<span class="text-emerald-500 text-lg">&#10003;</span> ${message}`;
+      } else if (type === 'error') {
+        el.classList.add('border-red-200', 'text-red-700');
+        el.innerHTML = `<span class="text-red-500 text-lg">&#10007;</span> ${message}`;
+      } else {
+        el.classList.add('border-slate-200', 'text-slate-700');
+        el.innerHTML = `<span class="text-slate-400 text-lg">&#9432;</span> ${message}`;
+      }
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+
+    // ======== PARSER ========
+    function detectDelimiter(line) {
+      const delimiters = [';', '\t', ','];
+      let best = ';';
+      let max = 0;
+      for (const d of delimiters) {
+        const count = line.split(d).length;
+        if (count > max) { max = count; best = d; }
+      }
+      return best;
+    }
+
+    function parseCSV(text, bank) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+      if (lines.length < 2) throw new Error('Il file CSV sembra vuoto o non contiene dati validi.');
+
+      const delim = detectDelimiter(lines[0]);
+      const rows = lines.map(line => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            inQuotes = !inQuotes;
+          } else if (ch === delim && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += ch;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      });
+
+      return parseRowsFromArray(rows, bank);
+    }
+
+    function serializeCellValue(v) {
+      if (v == null) return '';
+      if (v instanceof Date) {
+        const d = v;
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return yyyy + '-' + mm + '-' + dd;
+      }
+      if (typeof v === 'number' && v > 40000 && v < 80000) {
+        const d = new Date((v - 25569) * 86400 * 1000);
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return yyyy + '-' + mm + '-' + dd;
+      }
+      return String(v).trim();
+    }
+
+    function parseRowsFromArray(rows, bank) {
+      if (rows.length < 2) throw new Error('Il file sembra vuoto o non contiene dati validi.');
+      console.log('=== PARSE DEBUG ===');
+      console.log('Total rows from file:', rows.length);
+
+      function findHeaderRow(rows) {
+        for (let r = 0; r < Math.min(rows.length, 10); r++) {
+          const row = rows[r].map(h => String(h).trim().toLowerCase());
+          console.log('Row', r, 'cells:', row);
+          const hasData = row.some(h => h.includes('data'));
+          const hasDesc = row.some(h => h.includes('descrizion') || h.includes('operazione') || h.includes('dettagli') || h.includes('causale'));
+          const hasAmount = row.some(h => h.includes('importo') || h.includes('dare') || h.includes('avere') || h === 'amount' || h.includes('lordo') || h.includes('netto'));
+          console.log('  hasData:', hasData, 'hasDesc:', hasDesc, 'hasAmount:', hasAmount);
+          if (hasData && hasDesc && hasAmount) return r;
+        }
+        return -1;
+      }
+
+      let headerRow = findHeaderRow(rows);
+      console.log('Header row index:', headerRow);
+      if (headerRow === -1) {
+        const firstRow = rows[0].map(h => String(h).trim().toLowerCase()).join(', ');
+        throw new Error('Formato file non riconosciuto.\nRiga iniziale trovata: [' + firstRow + ']\nAttese colonne: Data, Descrizione, Importo.');
+      }
+
+      const header = rows[headerRow].map(h => String(h).trim().toLowerCase());
+      console.log('Header values:', header);
+
+      const result = [];
+
+      if (bank === 'intesa') {
+        const dataIdx = header.findIndex(h => h.includes('data'));
+        const descIdx = header.findIndex(h =>
+          h.includes('descrizion') || h.includes('operazione') ||
+          h.includes('causale') || h.includes('dettagli')
+        );
+        const amountIdx = header.findIndex(h => h.includes('importo') || h.includes('dare') || h.includes('avere'));
+        console.log('Column indices - data:', dataIdx, 'desc:', descIdx, 'amount:', amountIdx);
+
+        const hasDareAvere = header.includes('dare') && header.includes('avere');
+        const dareIdx = header.findIndex(h => h === 'dare');
+        const avereIdx = header.findIndex(h => h === 'avere');
+
+        let skipped = 0, parsed = 0;
+        for (let i = headerRow + 1; i < rows.length; i++) {
+          const row = rows[i];
+          const dateVal = row[dataIdx] ? serializeCellValue(row[dataIdx]) : '';
+          const descVal = row[descIdx] ? serializeCellValue(row[descIdx]) : '';
+          const amountRaw = row[amountIdx];
+          if (!dateVal || amountRaw == null) { skipped++; continue; }
+
+          if (hasDareAvere) {
+            const dare = parseItalianNumber(row[dareIdx] ? serializeCellValue(row[dareIdx]) : '0');
+            const avere = parseItalianNumber(row[avereIdx] ? serializeCellValue(row[avereIdx]) : '0');
+            const amount = dare > 0 ? -dare : avere;
+            if (parsed < 5) console.log('Row', i, '| date:', dateVal, '| desc:', (descVal||'').slice(0,40), '| amount:', amount);
+            result.push({
+              id: uuid(), date: dateVal, description: descVal,
+              amount: amount, bank: 'Intesa Sanpaolo',
+              category: categorize(descVal, amount),
+            });
+          } else {
+            const amount = parseItalianNumber(serializeCellValue(amountRaw));
+            if (parsed < 5) console.log('Row', i, '| date:', dateVal, '| desc:', (descVal||'').slice(0,40), '| amount:', amount);
+            result.push({
+              id: uuid(), date: dateVal, description: descVal,
+              amount: amount, bank: 'Intesa Sanpaolo',
+              category: categorize(descVal, amount),
+            });
+          }
+          parsed++;
+        }
+        console.log('Rows processed: parsed=' + parsed + ' skipped=' + skipped + ' total_after_header=' + (rows.length - headerRow - 1));
+      } else if (bank === 'revolut') {
+        const dataIdx = header.findIndex(h => h.includes('started date') || h.includes('date') || h.includes('data'));
+        const descIdx = header.findIndex(h => h.includes('description') || h.includes('descrizion'));
+        const amountIdx = header.findIndex(h => h === 'amount' || h.includes('importo'));
+        const feeIdx = header.findIndex(h => h === 'fee' || h === 'costo');
+
+        for (let i = headerRow + 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row[dataIdx] || row[amountIdx] == null) continue;
+          let amount = amountIdx !== -1 ? parseStandardNumber(serializeCellValue(row[amountIdx])) : 0;
+          const fee = feeIdx !== -1 ? parseStandardNumber(serializeCellValue(row[feeIdx])) : 0;
+          result.push({
+            id: uuid(), date: serializeCellValue(row[dataIdx]),
+            description: serializeCellValue(row[descIdx]) || 'Transazione Revolut',
+            amount: amount - fee, bank: 'Revolut',
+            category: categorize(serializeCellValue(row[descIdx]) || '', amount - fee),
+          });
+        }
+      } else if (bank === 'paypal') {
+        const dataIdx = header.findIndex(h => h.includes('data'));
+        const descIdx = header.findIndex(h => h.includes('descrizion'));
+        const amountIdx = header.findIndex(h => h.includes('lordo'));
+        if (dataIdx === -1 || descIdx === -1 || amountIdx === -1)
+          throw new Error('Colonne PayPal non trovate (Data, Descrizione, Lordo).');
+
+        const parsePayPalDate = v => {
+          const s = String(v).trim();
+          const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+          if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+          return serializeCellValue(v);
+        };
+
+        for (let i = headerRow + 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row[dataIdx] || row[amountIdx] == null) continue;
+          const amount = parseItalianNumber(serializeCellValue(row[amountIdx]));
+          if (amount === 0) continue;
+          const description = serializeCellValue(row[descIdx]) || 'Transazione PayPal';
+          result.push({
+            id: uuid(), date: parsePayPalDate(row[dataIdx]),
+            description, amount, bank: 'PayPal',
+            category: categorize(description, amount),
+          });
+        }
+      }
+
+      if (result.length === 0) throw new Error('Nessuna transazione valida trovata nel file.');
+      return result;
+    }
+
+    function parseExcel(data, bank) {
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+      console.log('=== EXCEL PARSE ===');
+      console.log('Sheet name:', workbook.SheetNames[0]);
+      console.log('Raw rows (including empty):', json.length);
+      let maxLen = 0;
+      for (const row of json) if (row.length > maxLen) maxLen = row.length;
+      console.log('Max columns:', maxLen);
+      const rows = json
+        .map(row => { while (row.length < maxLen) row.push(''); return row; })
+        .filter(row => row.some(cell => String(cell).trim() !== ''));
+      console.log('Non-empty rows:', rows.length);
+      return parseRowsFromArray(rows, bank);
+    }
+
+    // ======== CATEGORY LEGEND ========
+    function renderCategoryLegend() {
+      const el = document.getElementById('category-legend');
+      const isCustom = name => customCategories.some(c => c.name === name);
+      el.innerHTML = getAllCategories().map((c, i) =>
+        `<div class="flex items-center justify-between gap-2 category-row" data-index="${i}">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="cat-icon cursor-pointer hover:opacity-80" title="Clicca per cambiare icona" data-catindex="${i}">${c.icon || '📦'}</span>
+            <span class="cat-name truncate ${isCustom(c.name) ? 'cursor-pointer hover:text-indigo-600' : ''}" title="${isCustom(c.name) ? 'Clicca per rinominare' : ''}" data-catindex="${i}">${c.name}</span>
+          </div>
+          ${isCustom(c.name)
+            ? `<button class="del-cat-btn text-red-300 hover:text-red-500 text-xs leading-none shrink-0" data-category="${c.name}">&times;</button>`
+            : ''}
+        </div>`
+      ).join('');
+      el.querySelectorAll('.del-cat-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const cat = this.dataset.category;
+          if (confirm('Eliminare la categoria "' + cat + '" e le relative regole?')) {
+            deleteCustomCategory(cat);
+          }
+        });
+      });
+      el.querySelectorAll('.cat-icon').forEach(span => {
+        span.addEventListener('click', function() {
+          const idx = parseInt(this.dataset.catindex);
+          const all = getAllCategories();
+          const cat = all[idx];
+          const isCust = customCategories.some(c => c.name === cat.name);
+          if (!isCust) { showToast('Le categorie predefinite non sono modificabili.', 'error'); return; }
+          openIconEditor(idx, this);
+        });
+      });
+      el.querySelectorAll('.cat-name').forEach(span => {
+        span.addEventListener('click', function() {
+          const idx = parseInt(this.dataset.catindex);
+          const all = getAllCategories();
+          const cat = all[idx];
+          const isCust = customCategories.some(c => c.name === cat.name);
+          if (!isCust) { showToast('Le categorie predefinite non sono modificabili.', 'error'); return; }
+          const oldName = cat.name;
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = oldName;
+          input.className = 'border border-indigo-300 rounded px-1.5 py-0.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400 w-full';
+          span.replaceWith(input);
+          input.focus();
+          input.select();
+          function commit() {
+            const newName = input.value.trim();
+            if (newName && newName !== oldName) {
+              const ccIdx = customCategories.findIndex(c => c.name === oldName);
+              if (ccIdx === -1) return;
+              const dup = getAllCategories().some(c => c.name.toLowerCase() === newName.toLowerCase() && c.name !== oldName);
+              if (dup) { showToast('Categoria già esistente.', 'error'); input.focus(); return; }
+              customCategories[ccIdx].name = newName;
+              for (const rule of customRules) { if (rule.category === oldName) rule.category = newName; }
+              for (const tx of transactions) { if (tx.category === oldName) tx.category = newName; }
+              saveCustomData();
+              renderCategoryLegend();
+              updateRuleCategoryDropdown();
+              populateAddTxCategoryDropdown();
+              populateCategoryFilter();
+              updateDashboard();
+              showToast('Categoria rinominata in "' + newName + '".', 'success');
+            } else if (!newName) {
+              input.focus();
+            } else {
+              renderCategoryLegend();
+            }
+          }
+          input.addEventListener('blur', commit);
+          input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); commit(); }
+            if (e.key === 'Escape') { renderCategoryLegend(); }
+          });
+        });
+      });
+    }
+
+    function openIconEditor(catIndex, iconEl) {
+      const existing = document.getElementById('inline-icon-editor');
+      if (existing) existing.remove();
+      const picker = document.createElement('div');
+      picker.id = 'inline-icon-editor';
+      picker.className = 'flex flex-wrap gap-0.5 mt-1 p-1.5 bg-slate-50 rounded-lg border border-slate-200';
+      picker.innerHTML = ICON_OPTIONS.map(icon =>
+        `<span class="icon-opt w-6 h-6 flex items-center justify-center text-sm rounded cursor-pointer hover:bg-indigo-100" data-icon="${icon}">${icon}</span>`
+      ).join('');
+      const row = iconEl.closest('.category-row');
+      row.parentNode.insertBefore(picker, row.nextSibling);
+      const allCats = getAllCategories();
+      const cat = allCats[catIndex];
+      const ccIdx = customCategories.findIndex(c => c.name === cat.name);
+      picker.querySelectorAll('.icon-opt').forEach(el => {
+        if (el.dataset.icon === cat.icon) el.classList.add('ring-2', 'ring-indigo-400', 'bg-indigo-50');
+        el.addEventListener('click', function() {
+          const newIcon = this.dataset.icon;
+          customCategories[ccIdx].icon = newIcon;
+          saveCustomData();
+          renderCategoryLegend();
+          updateDashboard();
+          showToast('Icona aggiornata.', 'success');
+        });
+      });
+    }
+
+    function deleteCustomCategory(name) {
+      const idx = customCategories.findIndex(c => c.name === name);
+      if (idx === -1) return;
+      customCategories.splice(idx, 1);
+      customRules = customRules.filter(r => r.category !== name);
+      let changed = false;
+      for (const tx of transactions) {
+        if (tx.category === name) {
+          tx.category = 'Altro';
+          changed = true;
+        }
+      }
+      saveCustomData();
+      renderCategoryLegend();
+      updateRuleCategoryDropdown();
+      populateAddTxCategoryDropdown();
+      populateCategoryFilter();
+      refreshCustomRulesUI();
+      if (changed) updateDashboard();
+      else renderTable();
+      showToast('Categoria "' + name + '" eliminata.', 'info');
+    }
+
+    // ======== POPULATE FILTERS ========
+    function populateCategoryFilter(el) {
+      const target = el || document.getElementById('filter-category');
+      target.innerHTML = '<option value="">Tutte le categorie</option>' +
+        getAllCategories().map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    }
+
+    function populateAddTxCategoryDropdown() {
+      const sel = document.getElementById('add-tx-category');
+      sel.innerHTML = getAllCategories().map(c => `<option value="${c.name}">${c.icon || '📦'} ${c.name}</option>`).join('');
+    }
+
+    function populateYearFilter() {
+      const sel = document.getElementById('filter-year');
+      const years = new Set();
+      for (const tx of transactions) {
+        const d = new Date(tx.date);
+        if (!isNaN(d.getTime())) years.add(d.getFullYear());
+      }
+      const current = sel.value;
+      sel.innerHTML = '<option value="">Tutti gli anni</option>' +
+        [...years].sort().reverse().map(y => `<option value="${y}" ${String(y) === current ? 'selected' : ''}>${y}</option>`).join('');
+    }
+
+    // ======== RENDER TABLE ========
+    function renderTable() {
+      const tbody = document.getElementById('transactions-tbody');
+      const search = (document.getElementById('search-input').value || '').toLowerCase().trim();
+      const bankFilter = document.getElementById('filter-bank').value;
+      const catFilter = document.getElementById('filter-category').value;
+      const typeFilter = document.getElementById('filter-type').value;
+      const yearFilter = document.getElementById('filter-year').value;
+      const monthFilter = document.getElementById('filter-month').value;
+
+      let filtered = transactions;
+      if (search) {
+        filtered = filtered.filter(t =>
+          t.description.toLowerCase().includes(search) ||
+          t.category.toLowerCase().includes(search)
+        );
+      }
+      if (bankFilter) {
+        filtered = filtered.filter(t => t.bank === bankFilter);
+      }
+      if (catFilter) {
+        filtered = filtered.filter(t => t.category === catFilter);
+      }
+      if (typeFilter === 'entrate') {
+        filtered = filtered.filter(t => t.amount > 0);
+      } else if (typeFilter === 'uscite') {
+        filtered = filtered.filter(t => t.amount < 0);
+      }
+      if (yearFilter) {
+        filtered = filtered.filter(t => {
+          const d = new Date(t.date);
+          return !isNaN(d.getTime()) && String(d.getFullYear()) === yearFilter;
+        });
+      }
+      if (monthFilter) {
+        filtered = filtered.filter(t => {
+          const d = new Date(t.date);
+          return !isNaN(d.getTime()) && String(d.getMonth() + 1) === monthFilter;
+        });
+      }
+
+      const countEl = document.getElementById('tx-count');
+      countEl.textContent = filtered.length + ' / ' + transactions.length + ' transazioni';
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-slate-400 py-10">${
+          transactions.length === 0
+            ? 'Nessuna transazione. Carica un file CSV o usa la simulazione API.'
+            : 'Nessuna transazione corrisponde ai filtri.'
+        }</td></tr>`;
+        renderPagination(0);
+        return;
+      }
+
+      const sorted = [...filtered].sort((a, b) => {
+        let va = a[sortColumn];
+        let vb = b[sortColumn];
+        if (sortColumn === 'date') {
+          va = new Date(va).getTime();
+          vb = new Date(vb).getTime();
+        } else if (sortColumn === 'amount') {
+          va = Number(va);
+          vb = Number(vb);
+        } else {
+          va = String(va).toLowerCase();
+          vb = String(vb).toLowerCase();
+        }
+        if (va < vb) return sortDirection === 'asc' ? -1 : 1;
+        if (va > vb) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+      const totalPages = pageSize === 0 ? 1 : Math.ceil(sorted.length / pageSize);
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      const start = pageSize === 0 ? 0 : (currentPage - 1) * pageSize;
+      const end = pageSize === 0 ? sorted.length : start + pageSize;
+      const pageRows = sorted.slice(start, end);
+
+      tbody.innerHTML = pageRows.map(t => {
+        const bankBadgeClass = t.bank === 'Intesa Sanpaolo'
+          ? 'bg-emerald-100 text-emerald-700'
+          : t.bank === 'Revolut'
+          ? 'bg-sky-100 text-sky-700'
+          : 'bg-indigo-100 text-indigo-700';
+        const bankLabel = t.bank === 'Intesa Sanpaolo' ? 'ISP' : t.bank === 'Revolut' ? 'REV' : 'PYP';
+        const amountClass = t.amount >= 0 ? 'text-emerald-600' : 'text-red-500';
+        const txIcon = getCategoryIcon(t.category);
+        const catOptions = getAllCategories().map(c =>
+          `<option value="${c.name}" ${c.name === t.category ? 'selected' : ''}>${c.icon || '📦'} ${c.name}</option>`
+        ).join('');
+
+        return `<tr data-id="${t.id}" class="hover:bg-slate-50 transition-colors">
+          <td class="px-4 py-2.5 whitespace-nowrap text-slate-600">${formatDate(t.date)}</td>
+          <td class="px-4 py-2.5 whitespace-nowrap">
+            <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${bankBadgeClass}">${bankLabel}</span>
+          </td>
+          <td class="px-4 py-2.5 text-slate-700 max-w-xs truncate" title="${t.description}">${t.description}</td>
+          <td class="px-4 py-2.5 whitespace-nowrap flex items-center gap-1">
+            <span>${txIcon}</span>
+            <select class="category-select text-xs border border-slate-300 rounded px-1.5 py-1 focus:ring-2 focus:ring-indigo-400 outline-none bg-white" data-id="${t.id}">
+              ${catOptions}
+            </select>
+          </td>
+          <td class="px-4 py-2.5 whitespace-nowrap text-right font-semibold ${amountClass}">${formatCurrency(t.amount)}</td>
+        </tr>`;
+      }).join('');
+
+      document.querySelectorAll('.category-select').forEach(sel => {
+        sel.addEventListener('change', function() {
+          const id = this.dataset.id;
+          const newCat = this.value;
+          const tx = transactions.find(t => t.id === id);
+          if (tx) {
+            tx.category = newCat;
+            updateDashboard();
+            showToast('Categoria aggiornata a "' + newCat + '"', 'success');
+          }
+        });
+      });
+      renderPagination(filtered.length);
+    }
+
+    function updateSortArrows() {
+      document.querySelectorAll('.sortable').forEach(th => {
+        const arrow = th.querySelector('.sort-arrow');
+        if (th.dataset.sort === sortColumn) {
+          arrow.textContent = sortDirection === 'asc' ? ' \u25B2' : ' \u25BC';
+        } else {
+          arrow.textContent = '';
+        }
+      });
+    }
+
+    function renderPagination(total) {
+      updateSortArrows();
+      const totalPages = pageSize === 0 ? 1 : Math.ceil(total / pageSize);
+      const info = document.getElementById('page-info');
+      const prevBtn = document.getElementById('prev-page');
+      const nextBtn = document.getElementById('next-page');
+      const firstBtn = document.getElementById('first-page');
+      const lastBtn = document.getElementById('last-page');
+      if (total === 0 || pageSize === 0) {
+        info.textContent = '';
+        prevBtn.disabled = true; nextBtn.disabled = true;
+        firstBtn.disabled = true; lastBtn.disabled = true;
+        return;
+      }
+      info.textContent = 'Pagina ' + currentPage + ' di ' + totalPages + ' (' + Math.min(pageSize, total) + ' righe)';
+      prevBtn.disabled = currentPage <= 1;
+      nextBtn.disabled = currentPage >= totalPages;
+      firstBtn.disabled = currentPage <= 1;
+      lastBtn.disabled = currentPage >= totalPages;
+    }
+    function updateDashboard() {
+      if (transactions.length === 0) {
+        document.getElementById('data-status').innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-slate-300"></span> Nessun dato caricato';
+        document.getElementById('kpi-bilancio').textContent = '\u20AC 0,00';
+        document.getElementById('kpi-entrate').textContent = '\u20AC 0,00';
+        document.getElementById('kpi-uscite').textContent = '\u20AC 0,00';
+        document.getElementById('kpi-risparmio').textContent = '--';
+        if (donutChart) { donutChart.data.labels = []; donutChart.update(); }
+        if (barChart) { barChart.data.labels = []; barChart.data.datasets[0].data = [0, 0]; barChart.update(); }
+        populateYearFilter();
+        renderTable();
+        return;
+      }
+
+      const totalEntries = transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+      const totalExpenses = transactions.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+      const bilancio = totalEntries - totalExpenses;
+      const savingsPct = totalEntries > 0 ? ((totalEntries - totalExpenses) / totalEntries * 100) : 0;
+
+      populateYearFilter();
+
+      document.getElementById('data-status').innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span> ${transactions.length} transazioni`;
+      document.getElementById('kpi-bilancio').textContent = formatCurrency(bilancio);
+      document.getElementById('kpi-bilancio').className = 'text-2xl font-bold mt-1 ' + (bilancio >= 0 ? 'text-slate-800' : 'text-red-500');
+      document.getElementById('kpi-entrate').textContent = formatCurrency(totalEntries);
+      document.getElementById('kpi-uscite').textContent = formatCurrency(totalExpenses);
+      document.getElementById('kpi-risparmio').textContent = (savingsPct >= 0 ? '' : '') + savingsPct.toFixed(1) + '%';
+
+      // Donut chart - solo spese per categoria
+      const expenses = transactions.filter(t => t.amount < 0);
+      const catTotals = {};
+      expenses.forEach(t => {
+        catTotals[t.category] = (catTotals[t.category] || 0) + Math.abs(t.amount);
+      });
+      const donutLabels = Object.keys(catTotals);
+      const donutData = Object.values(catTotals);
+      const donutColors = donutLabels.map(l => getCategoryColor(l));
+
+      if (donutChart) donutChart.destroy();
+      const isPieOrDonut = chartType === 'doughnut' || chartType === 'pie';
+      donutChart = new Chart(document.getElementById('donut-chart').getContext('2d'), {
+        type: chartType,
+        data: {
+          labels: donutLabels,
+          datasets: [{ data: donutData, backgroundColor: donutColors, borderWidth: isPieOrDonut ? 0 : 1, borderColor: '#fff', label: 'Spese' }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } },
+            tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': \u20AC ' + Number(ctx.parsed).toLocaleString('it-IT') } }
+          },
+            scales: isPieOrDonut ? {} : {
+              y: { beginAtZero: true, ticks: { callback: v => Number.isFinite(v) ? '\u20AC ' + Number(v).toLocaleString('it-IT') : '' } }
+            }
+        }
+      });
+
+      // Bar chart - Entrate vs Uscite
+      if (barChart) barChart.destroy();
+      const pieChart = barChartType === 'doughnut' || barChartType === 'pie';
+      barChart = new Chart(document.getElementById('bar-chart').getContext('2d'), {
+        type: barChartType,
+        data: {
+          labels: ['Entrate', 'Uscite'],
+          datasets: [{
+            data: [totalEntries, totalExpenses],
+            backgroundColor: ['#10b981', '#ef4444'],
+            borderWidth: pieChart ? 0 : 1,
+            borderColor: '#fff',
+            borderRadius: pieChart ? 0 : 6,
+            maxBarThickness: pieChart ? undefined : 60,
+            label: 'Importo',
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: pieChart ? { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } } : { display: false },
+            tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': \u20AC ' + Number(ctx.parsed).toLocaleString('it-IT') } }
+          },
+          scales: pieChart ? {} : {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: v => Number.isFinite(v) ? '\u20AC ' + Number(v).toLocaleString('it-IT') : '' }
+            }
+          }
+        }
+      });
+
+      // Aggiorna tabella
+      renderTable();
+    }
+
+    // ======== ADD TRANSACTIONS ========
+    function addTransactions(newTxs) {
+      transactions = transactions.concat(newTxs);
+      updateDashboard();
+    }
+
+    // ======== INIT CHARTS ========
+    function initCharts() {
+      const donutCtx = document.getElementById('donut-chart').getContext('2d');
+      donutChart = new Chart(donutCtx, {
+        type: chartType,
+        data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0, label: 'Spese' }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } }
+          }
+        }
+      });
+
+      const barCtx = document.getElementById('bar-chart').getContext('2d');
+      barChart = new Chart(barCtx, {
+        type: barChartType,
+        data: {
+          labels: ['Entrate', 'Uscite'],
+          datasets: [{
+            data: [0, 0],
+            backgroundColor: ['#10b981', '#ef4444'],
+            borderRadius: 6,
+            maxBarThickness: 60,
+            label: 'Importo',
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': \u20AC ' + Number(ctx.parsed).toLocaleString('it-IT') } }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: v => Number.isFinite(v) ? '\u20AC ' + Number(v).toLocaleString('it-IT') : '' }
+            }
+          }
+        }
+      });
+    }
+
+    // ======== FILE DROP / UPLOAD ========
+    function handleFile(file) {
+      const bank = document.getElementById('bank-select').value;
+      const isExcel = /\.xlsx?$/i.test(file.name);
+
+      if (isExcel) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const parsed = parseExcel(new Uint8Array(e.target.result), bank);
+            console.log('=== FINAL === Transazioni parse:', parsed.length);
+            addTransactions(parsed);
+            showToast(`Caricate ${parsed.length} transazioni da ${bank === 'intesa' ? 'Intesa Sanpaolo' : bank === 'revolut' ? 'Revolut' : 'PayPal'} (Excel)`, 'success');
+          } catch (err) {
+            console.error('Parse error:', err);
+            showToast(err.message, 'error');
+          }
+        };
+        reader.onerror = function() {
+          showToast('Errore nella lettura del file Excel.', 'error');
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const parsed = parseCSV(e.target.result, bank);
+            addTransactions(parsed);
+            showToast(`Caricate ${parsed.length} transazioni da ${bank === 'intesa' ? 'Intesa Sanpaolo' : bank === 'revolut' ? 'Revolut' : 'PayPal'}`, 'success');
+          } catch (err) {
+            showToast(err.message, 'error');
+          }
+        };
+        reader.onerror = function() {
+          showToast('Errore nella lettura del file.', 'error');
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    // ======== EXPORT / IMPORT FLOWTRACK CSV ========
+    function exportCSV() {
+      const search = (document.getElementById('search-input').value || '').toLowerCase().trim();
+      const bankFilter = document.getElementById('filter-bank').value;
+      const catFilter = document.getElementById('filter-category').value;
+      const typeFilter = document.getElementById('filter-type').value;
+      const yearFilter = document.getElementById('filter-year').value;
+      const monthFilter = document.getElementById('filter-month').value;
+
+      let filtered = transactions;
+      if (search) filtered = filtered.filter(t => t.description.toLowerCase().includes(search) || t.category.toLowerCase().includes(search));
+      if (bankFilter) filtered = filtered.filter(t => t.bank === bankFilter);
+      if (catFilter) filtered = filtered.filter(t => t.category === catFilter);
+      if (typeFilter === 'entrate') filtered = filtered.filter(t => t.amount > 0);
+      else if (typeFilter === 'uscite') filtered = filtered.filter(t => t.amount < 0);
+      if (yearFilter) filtered = filtered.filter(t => { const d = new Date(t.date); return !isNaN(d.getTime()) && String(d.getFullYear()) === yearFilter; });
+      if (monthFilter) filtered = filtered.filter(t => { const d = new Date(t.date); return !isNaN(d.getTime()) && String(d.getMonth() + 1) === monthFilter; });
+
+      if (filtered.length === 0) { showToast('Nessuna transazione da esportare.', 'error'); return; }
+
+      const header = 'Data;Banca;Descrizione;Categoria;Importo';
+      const rows = filtered.map(t => {
+        const date = t.date.split(' ')[0];
+        const desc = t.description.replace(/;/g, ',');
+        return `${date};${t.bank};${desc};${t.category};${String(t.amount).replace('.', ',')}`;
+      });
+      const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'flowtrack_export.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Esportate ${filtered.length} transazioni`, 'success');
+    }
+
+    function importFlowTrackCSV(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const lines = e.target.result.split(/\r?\n/).filter(l => l.trim());
+          if (lines.length < 2) throw new Error('File CSV vuoto.');
+          const header = lines[0].split(';').map(h => h.trim().toLowerCase());
+          const dataIdx = header.findIndex(h => h === 'data');
+          const bankIdx = header.findIndex(h => h === 'banca');
+          const descIdx = header.findIndex(h => h === 'descrizione');
+          const catIdx = header.findIndex(h => h === 'categoria');
+          const amountIdx = header.findIndex(h => h === 'importo');
+          if (dataIdx === -1 || bankIdx === -1 || descIdx === -1 || catIdx === -1 || amountIdx === -1) {
+            throw new Error('Formato FlowTrack non riconosciuto. Colonne attese: Data, Banca, Descrizione, Categoria, Importo.');
+          }
+          const imported = [];
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(';').map(c => c.trim());
+            if (cols.length <= Math.max(dataIdx, bankIdx, descIdx, catIdx, amountIdx)) continue;
+            const rawAmount = cols[amountIdx].replace(/\./g, '').replace(',', '.');
+            const amount = parseFloat(rawAmount);
+            if (isNaN(amount)) continue;
+            imported.push({
+              id: uuid(),
+              date: cols[dataIdx],
+              description: cols[descIdx] || '',
+              amount: amount,
+              bank: cols[bankIdx] || 'FlowTrack',
+              category: cols[catIdx] || 'Altro',
+            });
+          }
+          if (imported.length === 0) throw new Error('Nessuna transazione valida trovata.');
+          addTransactions(imported);
+          showToast(`Ripristinate ${imported.length} transazioni da FlowTrack CSV`, 'success');
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      };
+      reader.onerror = function() { showToast('Errore nella lettura del file.', 'error'); };
+      reader.readAsText(file);
+    }
+
+    // ======== API SYNC SIMULATION ========
+    // ======== EVENTS ========
+    document.addEventListener('DOMContentLoaded', function() {
+      initCharts();
+      renderCategoryLegend();
+      populateCategoryFilter();
+      populateYearFilter();
+
+      const dropZone = document.getElementById('drop-zone');
+      const csvInput = document.getElementById('csv-input');
+
+      dropZone.addEventListener('click', () => csvInput.click());
+
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+      });
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) handleFile(files[0]);
+      });
+
+      csvInput.addEventListener('change', () => {
+        if (csvInput.files.length > 0) {
+          handleFile(csvInput.files[0]);
+          csvInput.value = '';
+        }
+      });
+
+      document.getElementById('reset-btn').addEventListener('click', function() {
+        if (transactions.length === 0) return;
+        transactions = [];
+        updateDashboard();
+        showToast('Tutti i dati sono stati cancellati.', 'info');
+      });
+
+      document.getElementById('search-input').addEventListener('input', function() { currentPage = 1; renderTable(); });
+      document.getElementById('filter-bank').addEventListener('change', function() { currentPage = 1; renderTable(); });
+      document.getElementById('filter-category').addEventListener('change', function() { currentPage = 1; renderTable(); });
+      document.getElementById('filter-type').addEventListener('change', function() { currentPage = 1; renderTable(); });
+      document.getElementById('filter-year').addEventListener('change', function() { currentPage = 1; renderTable(); });
+      document.getElementById('filter-month').addEventListener('change', function() { currentPage = 1; renderTable(); });
+
+      document.querySelectorAll('.sortable').forEach(th => {
+        th.addEventListener('click', function() {
+          const col = this.dataset.sort;
+          if (sortColumn === col) {
+            sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+          } else {
+            sortColumn = col;
+            sortDirection = 'asc';
+          }
+          renderTable();
+        });
+      });
+
+      document.getElementById('export-csv-btn').addEventListener('click', exportCSV);
+
+      document.getElementById('ft-import-input').addEventListener('change', function() {
+        if (this.files.length > 0) { importFlowTrackCSV(this.files[0]); this.value = ''; }
+      });
+
+      // Custom Rules UI
+      updateRuleCategoryDropdown();
+      populateAddTxCategoryDropdown();
+      refreshCustomRulesUI();
+      renderIconPicker('🛒');
+
+      document.getElementById('rules-toggle').addEventListener('click', function() {
+        const panel = document.getElementById('rules-panel');
+        const icon = document.getElementById('rules-toggle-icon');
+        panel.classList.toggle('hidden');
+        icon.style.transform = panel.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+      });
+
+      document.getElementById('confirm-add-cat-btn').addEventListener('click', addCustomCategory);
+      document.getElementById('show-add-cat-btn').addEventListener('click', function() {
+        document.getElementById('add-cat-form').classList.remove('hidden');
+        this.classList.add('hidden');
+        renderIconPicker('🛒');
+      });
+      document.getElementById('cancel-add-cat-btn').addEventListener('click', function() {
+        document.getElementById('add-cat-form').classList.add('hidden');
+        document.getElementById('show-add-cat-btn').classList.remove('hidden');
+      });
+      document.getElementById('add-rule-btn').addEventListener('click', addCustomRule);
+
+      document.getElementById('icon-picker').addEventListener('click', function(e) {
+        const opt = e.target.closest('.icon-opt');
+        if (opt) {
+          this.querySelectorAll('.icon-opt').forEach(el => el.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-50'));
+          opt.classList.add('ring-2', 'ring-indigo-400', 'bg-indigo-50');
+        }
+      });
+
+      document.getElementById('new-rule-keywords').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') addCustomRule();
+      });
+      document.getElementById('new-cat-name').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') addCustomCategory();
+      });
+
+      document.getElementById('show-add-tx').addEventListener('click', showAddTxForm);
+      document.getElementById('save-tx-btn').addEventListener('click', addManualTransaction);
+      document.getElementById('cancel-tx-btn').addEventListener('click', hideAddTxForm);
+      document.getElementById('add-tx-amount').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') addManualTransaction();
+      });
+      document.getElementById('add-tx-desc').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') document.getElementById('add-tx-amount').focus();
+      });
+      document.getElementById('add-tx-desc').addEventListener('input', function() {
+        const desc = this.value.trim();
+        const amount = parseFloat(document.getElementById('add-tx-amount').value) || -1;
+        if (desc) {
+          const cat = categorize(desc, amount);
+          document.getElementById('add-tx-category').value = cat;
+        }
+      });
+      document.getElementById('add-tx-amount').addEventListener('input', function() {
+        const desc = document.getElementById('add-tx-desc').value.trim();
+        if (desc) {
+          const amount = parseFloat(this.value) || -1;
+          const cat = categorize(desc, amount);
+          document.getElementById('add-tx-category').value = cat;
+        }
+      });
+
+      // Pagination
+      document.getElementById('page-size-select').addEventListener('change', function() {
+        pageSize = parseInt(this.value) || 0;
+        currentPage = 1;
+        renderTable();
+      });
+
+      document.getElementById('chart-type-select').addEventListener('change', function() {
+        chartType = this.value;
+        updateDashboard();
+      });
+      document.getElementById('barchart-type-select').addEventListener('change', function() {
+        barChartType = this.value;
+        updateDashboard();
+      });
+      document.getElementById('prev-page').addEventListener('click', function() {
+        if (currentPage > 1) { currentPage--; renderTable(); }
+      });
+      document.getElementById('next-page').addEventListener('click', function() {
+        currentPage++; renderTable();
+      });
+      document.getElementById('first-page').addEventListener('click', function() {
+        currentPage = 1; renderTable();
+      });
+      document.getElementById('last-page').addEventListener('click', function() {
+        currentPage = 99999; renderTable();
+      });
+    });
+  </script>
+</body>
+</html>
