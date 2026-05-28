@@ -83,10 +83,7 @@
           <div>
             <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Banca di Origine</label>
             <select id="bank-select" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none bg-white">
-              <option value="intesa">Intesa Sanpaolo</option>
-              <option value="revolut">Revolut</option>
-              <option value="paypal">PayPal</option>
-              <option value="contanti">Contanti</option>
+              <option value="">Seleziona banca...</option>
             </select>
           </div>
 
@@ -147,6 +144,33 @@
             <div id="custom-rules-list" class="space-y-1 max-h-40 overflow-y-auto"></div>
           </div>
         </div>
+
+        <!-- Gestisci Banche -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mt-4">
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Banche</p>
+          <div class="space-y-1.5" id="bank-legend"></div>
+          <div class="mt-1">
+            <button id="show-add-bank-btn" class="w-full flex items-center justify-center gap-1 py-1.5 text-xs text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg border border-dashed border-slate-300 hover:border-indigo-300 transition-colors">+ Nuova banca</button>
+            <div id="add-bank-form" class="hidden mt-2 space-y-1.5">
+              <input id="new-bank-name" type="text" placeholder="Nome banca" class="w-full border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+              <div class="flex items-center gap-1">
+                <input id="new-bank-label" type="text" placeholder="Label (es. ISP)" maxlength="5" class="flex-1 border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+                <input id="new-bank-color" type="color" value="#6366f1" class="w-7 h-7 p-0.5 border border-slate-300 rounded cursor-pointer flex-none">
+              </div>
+              <div class="border-t border-slate-200 pt-2 mt-1">
+                <p class="text-[10px] text-slate-500 font-medium mb-1">Configurazione CSV</p>
+                <input id="new-bank-csv-date" type="text" placeholder="Colonna data (es. Data)" class="w-full border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-400 mb-1">
+                <input id="new-bank-csv-amount" type="text" placeholder="Colonna importo (es. Importo)" class="w-full border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-400 mb-1">
+                <input id="new-bank-csv-desc" type="text" placeholder="Template descrizione (es. {ColA} - {ColB})" class="w-full border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+                <p class="text-[10px] text-slate-400 mt-0.5">Usa <code class="text-indigo-500">{NomeColonna}</code> per i placeholder</p>
+              </div>
+              <div class="flex gap-1">
+                <button id="confirm-add-bank-btn" class="flex-1 bg-indigo-600 text-white rounded text-xs font-medium py-1.5 hover:bg-indigo-700 transition-colors">&#10003; Aggiungi</button>
+                <button id="cancel-add-bank-btn" class="flex-1 text-slate-400 hover:text-slate-600 rounded text-xs py-1.5 transition-colors">&#10005; Annulla</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </aside>
 
       <!-- CONTENT: Charts + Table -->
@@ -183,17 +207,13 @@
         </div>
 
         <!-- FILTERS -->
-        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-sm font-semibold text-slate-600">Registro Transazioni <span id="tx-count" class="text-xs font-normal text-slate-400"></span>
             <button id="show-add-tx" class="text-xs font-normal text-indigo-600 hover:text-indigo-800 ml-2">+ Aggiungi</button>
           </p>
           <div class="flex flex-wrap items-center gap-2">
             <select id="filter-bank" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
               <option value="">Tutte le banche</option>
-              <option value="Intesa Sanpaolo">Intesa Sanpaolo</option>
-              <option value="Revolut">Revolut</option>
-              <option value="PayPal">PayPal</option>
-              <option value="Contanti">Contanti</option>
             </select>
             <select id="filter-category" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
               <option value="">Tutte le categorie</option>
@@ -248,10 +268,6 @@
           <div class="flex flex-col gap-0.5">
             <label class="text-[10px] text-slate-500 font-medium">Banca</label>
             <select id="add-tx-bank" class="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400 bg-white">
-              <option value="Intesa Sanpaolo">Intesa Sanpaolo</option>
-              <option value="Revolut">Revolut</option>
-              <option value="PayPal">PayPal</option>
-              <option value="Contanti">Contanti</option>
             </select>
           </div>
           <div class="flex flex-col gap-0.5">
@@ -267,6 +283,9 @@
           <table class="w-full text-sm">
             <thead class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
               <tr>
+                <th class="px-3 py-3 text-center w-8">
+                  <input type="checkbox" id="select-all-checkbox" class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 cursor-pointer">
+                </th>
                 <th class="sortable text-left px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="date">Data <span class="sort-arrow text-[10px]"></span></th>
                 <th class="sortable text-left px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="bank">Banca <span class="sort-arrow text-[10px]"></span></th>
                 <th class="sortable text-left px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="description">Descrizione <span class="sort-arrow text-[10px]"></span></th>
@@ -277,7 +296,7 @@
             </thead>
             <tbody id="transactions-tbody" class="divide-y divide-slate-100">
               <tr>
-                <td colspan="6" class="text-center text-slate-400 py-10">Nessuna transazione. Carica un file CSV o usa la simulazione API.</td>
+                <td colspan="7" class="text-center text-slate-400 py-10">Nessuna transazione. Carica un file CSV o usa la simulazione API.</td>
               </tr>
             </tbody>
           </table>
@@ -305,6 +324,14 @@
           </div>
         </div>
     </div>
+
+    <!-- Bulk action bar -->
+    <div id="bulk-bar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-white border border-red-200 rounded-xl shadow-lg px-5 py-3">
+      <span id="bulk-count" class="text-sm text-red-600 font-medium">0 selezionate</span>
+      <span class="text-slate-200">|</span>
+      <button id="bulk-delete-btn" class="text-sm bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">Elimina selezionate</button>
+      <button id="bulk-clear-btn" class="text-sm text-slate-500 hover:text-slate-700 px-2 py-1.5 transition-colors">Annulla</button>
+    </div>
   </main>
 
   <script>
@@ -319,6 +346,7 @@
     let currentPage = 1;
     let editingId = null;
     let splittingId = null;
+    let selectedIds = new Set();
     let splitParts = [];
     let donutChart = null;
     let barChart = null;
@@ -358,6 +386,158 @@
       el.innerHTML = ICON_OPTIONS.map(icon =>
         `<span class="icon-opt w-6 h-6 flex items-center justify-center text-sm rounded cursor-pointer hover:bg-indigo-100 ${icon === selectedIcon ? 'ring-2 ring-indigo-400 bg-indigo-50' : ''}" data-icon="${icon}">${icon}</span>`
       ).join('');
+    }
+
+    // ======== BANCHE ========
+    const DEFAULT_BANKS = [
+      { id: 'intesa', name: 'Intesa Sanpaolo', label: 'ISP', color: '#10b981',
+        csvConfig: { dateCol: 'data', amountType: 'dare-avere', dareCol: 'dare', avereCol: 'avere', descCol: 'descrizione', descTemplate: '{descrizione}' } },
+      { id: 'revolut', name: 'Revolut', label: 'REV', color: '#0ea5e9',
+        csvConfig: { dateCol: 'started date', amountType: 'single', amountCol: 'amount', descCol: 'description', descTemplate: '{description}', useFee: true } },
+      { id: 'paypal', name: 'PayPal', label: 'PYP', color: '#6366f1',
+        csvConfig: { dateCol: 'data', amountType: 'single', amountCol: 'lordo', dateFormat: 'paypal', descCol: 'descrizione', descTemplate: '{nome} - {descrizione} ({messaggio})' } },
+      { id: 'contanti', name: 'Contanti', label: 'CON', color: '#f59e0b' },
+    ];
+
+    let customBanks = [];
+    try {
+      customBanks = JSON.parse(localStorage.getItem('ft_custom_banks')) || [];
+    } catch (e) {}
+
+    function getAllBanks() {
+      return [...DEFAULT_BANKS, ...customBanks];
+    }
+
+    function saveBanks() {
+      localStorage.setItem('ft_custom_banks', JSON.stringify(customBanks));
+    }
+
+    function getBankStyle(bankName) {
+      const all = getAllBanks();
+      const b = all.find(x => x.name === bankName) || all.find(x => x.id === bankName);
+      if (!b) return { label: bankName.slice(0,3).toUpperCase(), color: '#94a3b8' };
+      return { label: b.label || b.name.slice(0,3).toUpperCase(), color: b.color || '#94a3b8' };
+    }
+
+    function populateBankSelect(sel, selectedValue) {
+      const all = getAllBanks();
+      const isImport = sel.id === 'bank-select';
+      sel.innerHTML = (isImport ? '<option value="">Seleziona banca...</option>' : '') +
+        all.map(b =>
+          `<option value="${b.name}" ${b.name === selectedValue ? 'selected' : ''}>${b.name}</option>`
+        ).join('');
+    }
+
+    function populateBankFilter(sel) {
+      const all = getAllBanks();
+      sel.innerHTML = '<option value="">Tutte le banche</option>' +
+        all.map(b => `<option value="${b.name}" ${b.name === sel.value ? 'selected' : ''}>${b.name}</option>`).join('');
+    }
+
+    function renderBankLegend() {
+      const el = document.getElementById('bank-legend');
+      if (!el) return;
+      const all = getAllBanks();
+      el.innerHTML = all.map(b => {
+        const isCustom = customBanks.some(c => c.name === b.name);
+        const editing = sessionStorage.getItem('editingBank') === b.name;
+        if (editing) {
+          const editIdx = customBanks.findIndex(c => c.name === b.name);
+          const eb = customBanks[editIdx];
+          return `<div class="border border-indigo-200 rounded-lg p-2 space-y-1.5 bg-indigo-50/40">
+            <div class="flex items-center gap-1">
+              <input id="edit-bank-label-${editIdx}" type="text" value="${eb.label || ''}" placeholder="Label" maxlength="5" class="flex-1 border border-indigo-300 rounded px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+              <input id="edit-bank-color-${editIdx}" type="color" value="${eb.color || '#6366f1'}" class="w-7 h-7 p-0.5 border border-slate-300 rounded cursor-pointer flex-none">
+            </div>
+            <div class="border-t border-indigo-200 pt-1">
+              <p class="text-[10px] text-slate-500 font-medium mb-0.5">Configurazione CSV</p>
+              <input id="edit-bank-csv-date-${editIdx}" type="text" value="${eb.csvConfig?.dateCol || ''}" placeholder="Colonna data" class="w-full border border-slate-300 rounded px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-400 mb-0.5">
+              <input id="edit-bank-csv-amount-${editIdx}" type="text" value="${eb.csvConfig?.amountCol || ''}" placeholder="Colonna importo" class="w-full border border-slate-300 rounded px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-400 mb-0.5">
+              <input id="edit-bank-csv-desc-${editIdx}" type="text" value="${eb.csvConfig?.descTemplate || ''}" placeholder="Template descrizione" class="w-full border border-slate-300 rounded px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
+              <p class="text-[10px] text-slate-400 mt-0.5">Usa <code class="text-indigo-500">{NomeColonna}</code></p>
+            </div>
+            <div class="flex gap-1 pt-1">
+              <button class="save-bank-edit-btn flex-1 bg-indigo-600 text-white rounded text-xs font-medium py-1 hover:bg-indigo-700 transition-colors" data-editidx="${editIdx}">&#10003; Salva</button>
+              <button class="cancel-bank-edit-btn flex-1 text-slate-400 hover:text-slate-600 rounded text-xs py-1 transition-colors" data-editidx="${editIdx}">&#10005; Annulla</button>
+            </div>
+          </div>`;
+        }
+        return `<div class="flex items-center justify-between gap-2 bank-row" data-id="${b.id}">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="inline-block w-2 h-2 rounded-full shrink-0" style="background:${b.color}"></span>
+            <span class="text-xs text-slate-700 truncate">${b.name}</span>
+            <span class="text-[10px] text-slate-400 font-mono">${b.label}</span>
+          </div>
+          <div class="flex items-center gap-1">
+            ${isCustom
+              ? `<button class="edit-bank-btn text-indigo-300 hover:text-indigo-500 text-xs leading-none" data-name="${b.name}">&#9998;</button>
+                 <button class="del-bank-btn text-red-300 hover:text-red-500 text-xs leading-none" data-name="${b.name}">&times;</button>`
+              : ''}
+          </div>
+        </div>`;
+      }).join('');
+      el.querySelectorAll('.del-bank-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const name = this.dataset.name;
+          if (confirm('Eliminare la banca "' + name + '"?')) {
+            const idx = customBanks.findIndex(b => b.name === name);
+            if (idx !== -1) {
+              customBanks.splice(idx, 1);
+              saveBanks();
+              renderBankLegend();
+              refreshAllBankSelects();
+              showToast('Banca "' + name + '" eliminata.', 'info');
+            }
+          }
+        });
+      });
+      el.querySelectorAll('.edit-bank-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          sessionStorage.setItem('editingBank', this.dataset.name);
+          renderBankLegend();
+        });
+      });
+      el.querySelectorAll('.save-bank-edit-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const idx = parseInt(this.dataset.editidx);
+          const bank = customBanks[idx];
+          if (!bank) return;
+          const label = document.getElementById('edit-bank-label-' + idx)?.value?.trim().toUpperCase();
+          const color = document.getElementById('edit-bank-color-' + idx)?.value;
+          const csvDate = document.getElementById('edit-bank-csv-date-' + idx)?.value?.trim();
+          const csvAmount = document.getElementById('edit-bank-csv-amount-' + idx)?.value?.trim();
+          const csvDesc = document.getElementById('edit-bank-csv-desc-' + idx)?.value?.trim();
+          if (label) bank.label = label;
+          if (color) bank.color = color;
+          if (csvDate && csvAmount) {
+            bank.csvConfig = {
+              dateCol: csvDate.toLowerCase(),
+              amountType: 'single',
+              amountCol: csvAmount.toLowerCase(),
+              descTemplate: csvDesc || '',
+            };
+          } else if (!csvDate || !csvAmount) {
+            bank.csvConfig = null;
+          }
+          saveBanks();
+          sessionStorage.removeItem('editingBank');
+          renderBankLegend();
+          refreshAllBankSelects();
+          showToast('Banca "' + bank.name + '" aggiornata.', 'success');
+        });
+      });
+      el.querySelectorAll('.cancel-bank-edit-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          sessionStorage.removeItem('editingBank');
+          renderBankLegend();
+        });
+      });
+    }
+
+    function refreshAllBankSelects() {
+      populateBankFilter(document.getElementById('filter-bank'));
+      populateBankSelect(document.getElementById('bank-select'));
+      populateBankSelect(document.getElementById('add-tx-bank'));
     }
 
     const CATEGORY_RULES = [
@@ -643,7 +823,7 @@
       return String(v).trim();
     }
 
-    function parseRowsFromArray(rows, bank) {
+    function parseRowsFromArray(rows, bankName) {
       if (rows.length < 2) throw new Error('Il file sembra vuoto o non contiene dati validi.');
       console.log('=== PARSE DEBUG ===');
       console.log('Total rows from file:', rows.length);
@@ -673,7 +853,10 @@
 
       const result = [];
 
-      if (bank === 'intesa') {
+      const bankConfig = getAllBanks().find(b => b.name === bankName);
+      const bankId = bankConfig ? bankConfig.id : '';
+
+      if (bankId === 'intesa') {
         const dataIdx = header.findIndex(h => h.includes('data'));
         const descIdx = header.findIndex(h =>
           h.includes('descrizion') || h.includes('operazione') ||
@@ -701,7 +884,7 @@
             if (parsed < 5) console.log('Row', i, '| date:', dateVal, '| desc:', (descVal||'').slice(0,40), '| amount:', amount);
             result.push({
               id: uuid(), date: dateVal, description: descVal,
-              amount: amount, bank: 'Intesa Sanpaolo',
+              amount: amount, bank: bankName,
               category: categorize(descVal, amount),
             });
           } else {
@@ -709,14 +892,14 @@
             if (parsed < 5) console.log('Row', i, '| date:', dateVal, '| desc:', (descVal||'').slice(0,40), '| amount:', amount);
             result.push({
               id: uuid(), date: dateVal, description: descVal,
-              amount: amount, bank: 'Intesa Sanpaolo',
+              amount: amount, bank: bankName,
               category: categorize(descVal, amount),
             });
           }
           parsed++;
         }
         console.log('Rows processed: parsed=' + parsed + ' skipped=' + skipped + ' total_after_header=' + (rows.length - headerRow - 1));
-      } else if (bank === 'revolut') {
+      } else if (bankId === 'revolut') {
         const dataIdx = header.findIndex(h => h.includes('started date') || h.includes('date') || h.includes('data'));
         const descIdx = header.findIndex(h => h.includes('description') || h.includes('descrizion'));
         const amountIdx = header.findIndex(h => h === 'amount' || h.includes('importo'));
@@ -730,11 +913,11 @@
           result.push({
             id: uuid(), date: serializeCellValue(row[dataIdx]),
             description: serializeCellValue(row[descIdx]) || 'Transazione Revolut',
-            amount: amount - fee, bank: 'Revolut',
+            amount: amount - fee, bank: bankName,
             category: categorize(serializeCellValue(row[descIdx]) || '', amount - fee),
           });
         }
-      } else if (bank === 'paypal') {
+      } else if (bankId === 'paypal') {
         const dataIdx = header.findIndex(h => h.includes('data'));
         const descIdx = header.findIndex(h => h.includes('descrizion') || h.includes('tipo'));
         const nameIdx = header.findIndex(h => h === 'nome');
@@ -767,7 +950,53 @@
           }
           result.push({
             id: uuid(), date: parsePayPalDate(row[dataIdx]),
-            description, amount, bank: 'PayPal',
+            description, amount, bank: bankName,
+            category: categorize(description, amount),
+          });
+        }
+      } else if (bankConfig && bankConfig.csvConfig) {
+        const cfg = bankConfig.csvConfig;
+        const dateIdx = header.findIndex(h => h.includes(cfg.dateCol));
+        const amountIdx = cfg.amountType === 'dare-avere'
+          ? -1
+          : header.findIndex(h => h.includes(cfg.amountCol));
+        const dareIdx = cfg.amountType === 'dare-avere' ? header.findIndex(h => h === cfg.dareCol) : -1;
+        const avereIdx = cfg.amountType === 'dare-avere' ? header.findIndex(h => h === cfg.avereCol) : -1;
+
+        if (dateIdx === -1 || (cfg.amountType === 'single' && amountIdx === -1) || (cfg.amountType === 'dare-avere' && (dareIdx === -1 || avereIdx === -1)))
+          throw new Error('Colonne CSV non trovate per "' + bankName + '". Verifica la configurazione banca.');
+
+        const descTemplate = cfg.descTemplate;
+
+        for (let i = headerRow + 1; i < rows.length; i++) {
+          const row = rows[i];
+          const dateVal = row[dateIdx] ? serializeCellValue(row[dateIdx]) : '';
+          if (!dateVal) continue;
+
+          let amount;
+          if (cfg.amountType === 'dare-avere') {
+            const dare = parseItalianNumber(row[dareIdx] ? serializeCellValue(row[dareIdx]) : '0');
+            const avere = parseItalianNumber(row[avereIdx] ? serializeCellValue(row[avereIdx]) : '0');
+            amount = dare > 0 ? -dare : avere;
+          } else {
+            if (row[amountIdx] == null) continue;
+            amount = parseStandardNumber(serializeCellValue(row[amountIdx]));
+          }
+          if (amount === 0) continue;
+
+          let description = descTemplate;
+          header.forEach((col, ci) => {
+            const val = serializeCellValue(row[ci]);
+            const escaped = col.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp('\\{' + escaped + '\\}', 'gi');
+            description = description.replace(re, val || '');
+          });
+          description = description.replace(/\s+/g, ' ').trim();
+          if (!description) description = 'Transazione ' + bankName;
+
+          result.push({
+            id: uuid(), date: dateVal, description,
+            amount, bank: bankName,
             category: categorize(description, amount),
           });
         }
@@ -993,7 +1222,7 @@
       countEl.textContent = filtered.length + ' / ' + transactions.length + ' transazioni';
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-slate-400 py-10">${
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-slate-400 py-10">${
           transactions.length === 0
             ? 'Nessuna transazione. Carica un file CSV o usa la simulazione API.'
             : 'Nessuna transazione corrisponde ai filtri.'
@@ -1026,15 +1255,9 @@
       const end = pageSize === 0 ? sorted.length : start + pageSize;
       const pageRows = sorted.slice(start, end);
 
-      tbody.innerHTML = pageRows.map(t => {
-        const bankBadgeClass = t.bank === 'Intesa Sanpaolo'
-          ? 'bg-emerald-100 text-emerald-700'
-          : t.bank === 'Revolut'
-          ? 'bg-sky-100 text-sky-700'
-          : t.bank === 'Contanti'
-          ? 'bg-amber-100 text-amber-700'
-          : 'bg-indigo-100 text-indigo-700';
-        const bankLabel = t.bank === 'Intesa Sanpaolo' ? 'ISP' : t.bank === 'Revolut' ? 'REV' : t.bank === 'Contanti' ? 'CON' : 'PYP';
+        tbody.innerHTML = pageRows.map(t => {
+        const bStyle = getBankStyle(t.bank);
+        const bankLabel = bStyle.label;
         const amountClass = t.amount >= 0 ? 'text-emerald-600' : 'text-red-500';
         const txIcon = getCategoryIcon(t.category);
         const catOptions = getAllCategories().map(c =>
@@ -1047,12 +1270,9 @@
           : `<span class="text-slate-600 text-xs">${formatDate(t.date)}</span>`;
         const bankHtml = isEditing
           ? `<select class="bank-input text-xs border border-indigo-400 rounded px-1.5 py-1 outline-none bg-white" data-id="${t.id}">
-               <option value="Intesa Sanpaolo" ${t.bank === 'Intesa Sanpaolo' ? 'selected' : ''}>Intesa Sanpaolo</option>
-               <option value="Revolut" ${t.bank === 'Revolut' ? 'selected' : ''}>Revolut</option>
-               <option value="PayPal" ${t.bank === 'PayPal' ? 'selected' : ''}>PayPal</option>
-               <option value="Contanti" ${t.bank === 'Contanti' ? 'selected' : ''}>Contanti</option>
+               ${getAllBanks().map(b => `<option value="${b.name}" ${t.bank === b.name ? 'selected' : ''}>${b.name}</option>`).join('')}
              </select>`
-          : `<span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${bankBadgeClass}">${bankLabel}</span>`;
+          : `<span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full text-white" style="background:${bStyle.color}">${bankLabel}</span>`;
         const descHtml = isEditing
           ? `<input type="text" class="desc-input w-full bg-transparent border border-indigo-400 rounded px-1.5 py-0.5 text-xs outline-none" value="${t.description.replace(/"/g, '&quot;')}" data-id="${t.id}">`
           : `<span class="text-slate-700 text-xs leading-relaxed" title="${t.description.replace(/"/g, '&quot;')}">${t.description}</span>`;
@@ -1076,7 +1296,11 @@
               </div>`;
 
         const isSplit = String(t.id) === splittingId;
-        let rowHtml = `<tr data-id="${t.id}" class="hover:bg-slate-50 transition-colors ${isSplit ? 'bg-indigo-50/40' : ''}">
+        const checked = selectedIds.has(String(t.id));
+        let rowHtml = `<tr data-id="${t.id}" class="hover:bg-slate-50 transition-colors ${isSplit ? 'bg-indigo-50/40' : ''} ${checked ? 'bg-indigo-50/30' : ''}">
+          <td class="px-3 py-2.5 text-center w-8">
+            <input type="checkbox" class="tx-checkbox w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 cursor-pointer" data-id="${t.id}" ${checked ? 'checked' : ''}>
+          </td>
           <td class="px-4 py-2.5 whitespace-nowrap text-slate-600">${dateHtml}</td>
           <td class="px-4 py-2.5 whitespace-nowrap">${bankHtml}</td>
           <td class="px-4 py-2.5 text-slate-700 max-w-xs">${descHtml}</td>
@@ -1097,10 +1321,7 @@
               </td>
               <td class="px-4 py-2 whitespace-nowrap">
                 <select class="split-bank text-xs border border-amber-400 rounded px-1.5 py-1 outline-none bg-white">
-                  <option value="Intesa Sanpaolo" ${sp.bank === 'Intesa Sanpaolo' ? 'selected' : ''}>Intesa Sanpaolo</option>
-                  <option value="Revolut" ${sp.bank === 'Revolut' ? 'selected' : ''}>Revolut</option>
-                  <option value="PayPal" ${sp.bank === 'PayPal' ? 'selected' : ''}>PayPal</option>
-                  <option value="Contanti" ${sp.bank === 'Contanti' ? 'selected' : ''}>Contanti</option>
+                  ${getAllBanks().map(b => `<option value="${b.name}" ${sp.bank === b.name ? 'selected' : ''}>${b.name}</option>`).join('')}
                 </select>
               </td>
               <td class="px-4 py-2 text-slate-700 max-w-xs">
@@ -1345,6 +1566,28 @@
           }
         });
       });
+      document.querySelectorAll('.tx-checkbox').forEach(cb => {
+        cb.addEventListener('change', function() {
+          const id = this.dataset.id;
+          if (this.checked) selectedIds.add(id);
+          else selectedIds.delete(id);
+          updateBulkBar();
+        });
+      });
+      const selectAll = document.getElementById('select-all-checkbox');
+      if (selectAll) {
+        selectAll.checked = selectedIds.size > 0 && selectedIds.size === document.querySelectorAll('.tx-checkbox').length;
+        selectAll.addEventListener('change', function() {
+          document.querySelectorAll('.tx-checkbox').forEach(cb => {
+            cb.checked = this.checked;
+            const id = cb.dataset.id;
+            if (this.checked) selectedIds.add(id);
+            else selectedIds.delete(id);
+          });
+          updateBulkBar();
+        });
+      }
+      updateBulkBar();
       renderPagination(filtered.length);
     }
 
@@ -1357,6 +1600,19 @@
           arrow.textContent = '';
         }
       });
+    }
+
+    function updateBulkBar() {
+      const bar = document.getElementById('bulk-bar');
+      const countEl = document.getElementById('bulk-count');
+      if (!bar || !countEl) return;
+      const count = selectedIds.size;
+      if (count > 0) {
+        bar.classList.remove('hidden');
+        countEl.textContent = count + ' selezionat' + (count === 1 ? 'a' : 'e');
+      } else {
+        bar.classList.add('hidden');
+      }
     }
 
     function renderPagination(total) {
@@ -1428,6 +1684,13 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          onClick: (event, elements) => {
+            if (elements.length > 0) {
+              const label = donutLabels[elements[0].index];
+              document.getElementById('filter-category').value = label;
+              renderTable();
+            }
+          },
           plugins: {
             legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } },
             tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': \u20AC ' + Number(ctx.parsed).toLocaleString('it-IT') } }
@@ -1528,17 +1791,18 @@
 
     // ======== FILE DROP / UPLOAD ========
     function handleFile(file) {
-      const bank = document.getElementById('bank-select').value;
+      const bankName = document.getElementById('bank-select').value;
+      if (!bankName) { showToast('Seleziona una banca.', 'error'); return; }
       const isExcel = /\.xlsx?$/i.test(file.name);
 
       if (isExcel) {
         const reader = new FileReader();
         reader.onload = function(e) {
           try {
-            const parsed = parseExcel(new Uint8Array(e.target.result), bank);
+            const parsed = parseExcel(new Uint8Array(e.target.result), bankName);
             console.log('=== FINAL === Transazioni parse:', parsed.length);
             addTransactions(parsed);
-            showToast(`Caricate ${parsed.length} transazioni da ${bank === 'intesa' ? 'Intesa Sanpaolo' : bank === 'revolut' ? 'Revolut' : bank === 'contanti' ? 'Contanti' : 'PayPal'} (Excel)`, 'success');
+            showToast('Caricate ' + parsed.length + ' transazioni da ' + bankName + ' (Excel)', 'success');
           } catch (err) {
             console.error('Parse error:', err);
             showToast(err.message, 'error');
@@ -1552,9 +1816,9 @@
         const reader = new FileReader();
         reader.onload = function(e) {
           try {
-            const parsed = parseCSV(e.target.result, bank);
+            const parsed = parseCSV(e.target.result, bankName);
             addTransactions(parsed);
-            showToast(`Caricate ${parsed.length} transazioni da ${bank === 'intesa' ? 'Intesa Sanpaolo' : bank === 'revolut' ? 'Revolut' : bank === 'contanti' ? 'Contanti' : 'PayPal'}`, 'success');
+            showToast('Caricate ' + parsed.length + ' transazioni da ' + bankName, 'success');
           } catch (err) {
             showToast(err.message, 'error');
           }
@@ -1654,6 +1918,8 @@
       renderCategoryLegend();
       populateCategoryFilter();
       populateYearFilter();
+      renderBankLegend();
+      refreshAllBankSelects();
 
       const dropZone = document.getElementById('drop-zone');
       const csvInput = document.getElementById('csv-input');
@@ -1788,6 +2054,68 @@
           const cat = categorize(desc, amount);
           document.getElementById('add-tx-category').value = cat;
         }
+      });
+
+      // Bank management
+      document.getElementById('show-add-bank-btn').addEventListener('click', function() {
+        this.classList.add('hidden');
+        document.getElementById('add-bank-form').classList.remove('hidden');
+      });
+      document.getElementById('cancel-add-bank-btn').addEventListener('click', function() {
+        document.getElementById('add-bank-form').classList.add('hidden');
+        document.getElementById('show-add-bank-btn').classList.remove('hidden');
+      });
+      document.getElementById('confirm-add-bank-btn').addEventListener('click', function() {
+        const name = document.getElementById('new-bank-name').value.trim();
+        const label = document.getElementById('new-bank-label').value.trim().toUpperCase();
+        const color = document.getElementById('new-bank-color').value;
+        const csvDate = document.getElementById('new-bank-csv-date').value.trim();
+        const csvAmount = document.getElementById('new-bank-csv-amount').value.trim();
+        const csvDesc = document.getElementById('new-bank-csv-desc').value.trim();
+        if (!name) { showToast('Inserisci un nome per la banca.', 'error'); return; }
+        if (getAllBanks().some(b => b.name.toLowerCase() === name.toLowerCase())) {
+          showToast('Banca già esistente.', 'error'); return;
+        }
+        const bank = { id: 'custom_' + Date.now(), name, label: label || name.slice(0,3).toUpperCase(), color };
+        if (csvDate && csvAmount) {
+          bank.csvConfig = {
+            dateCol: csvDate.toLowerCase(),
+            amountType: 'single',
+            amountCol: csvAmount.toLowerCase(),
+            descTemplate: csvDesc || '',
+          };
+        }
+        customBanks.push(bank);
+        saveBanks();
+        document.getElementById('add-bank-form').classList.add('hidden');
+        document.getElementById('show-add-bank-btn').classList.remove('hidden');
+        document.getElementById('new-bank-name').value = '';
+        document.getElementById('new-bank-label').value = '';
+        document.getElementById('new-bank-csv-date').value = '';
+        document.getElementById('new-bank-csv-amount').value = '';
+        document.getElementById('new-bank-csv-desc').value = '';
+        renderBankLegend();
+        refreshAllBankSelects();
+        showToast('Banca "' + name + '" aggiunta.', 'success');
+      });
+
+      // Bulk select / delete
+      document.getElementById('bulk-delete-btn').addEventListener('click', function() {
+        if (selectedIds.size === 0) return;
+        const count = selectedIds.size;
+        const msg = count === 1
+          ? 'Eliminare 1 transazione selezionata?'
+          : 'Eliminare ' + count + ' transazioni selezionate?';
+        if (!confirm(msg)) return;
+        transactions = transactions.filter(t => !selectedIds.has(String(t.id)));
+        selectedIds.clear();
+        updateBulkBar();
+        updateDashboard();
+        showToast('Eliminate ' + count + ' transazioni.', 'success');
+      });
+      document.getElementById('bulk-clear-btn').addEventListener('click', function() {
+        selectedIds.clear();
+        renderTable();
       });
 
       // Pagination
