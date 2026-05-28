@@ -86,6 +86,7 @@
               <option value="intesa">Intesa Sanpaolo</option>
               <option value="revolut">Revolut</option>
               <option value="paypal">PayPal</option>
+              <option value="contanti">Contanti</option>
             </select>
           </div>
 
@@ -192,6 +193,7 @@
               <option value="Intesa Sanpaolo">Intesa Sanpaolo</option>
               <option value="Revolut">Revolut</option>
               <option value="PayPal">PayPal</option>
+              <option value="Contanti">Contanti</option>
             </select>
             <select id="filter-category" class="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
               <option value="">Tutte le categorie</option>
@@ -219,11 +221,13 @@
               <option value="11">Novembre</option>
               <option value="12">Dicembre</option>
             </select>
+            <button id="reset-filters-btn" class="text-xs border border-slate-300 rounded-lg px-1.5 py-1 hover:bg-red-50 hover:border-red-300 transition-colors bg-white" title="Resetta filtri">&#8635;</button>
             <div class="relative flex-1 min-w-[180px]">
               <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">&#128269;</span>
               <input id="search-input" type="text" placeholder="Cerca descrizione o categoria..." class="w-full border border-slate-300 rounded-lg pl-7 pr-2 py-1.5 text-xs focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none">
             </div>
             <button id="export-csv-btn" class="text-xs border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-indigo-50 hover:border-indigo-300 transition-colors bg-white flex items-center gap-1">&#8595; CSV</button>
+
           </div>
         </div>
 
@@ -247,6 +251,7 @@
               <option value="Intesa Sanpaolo">Intesa Sanpaolo</option>
               <option value="Revolut">Revolut</option>
               <option value="PayPal">PayPal</option>
+              <option value="Contanti">Contanti</option>
             </select>
           </div>
           <div class="flex flex-col gap-0.5">
@@ -267,11 +272,12 @@
                 <th class="sortable text-left px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="description">Descrizione <span class="sort-arrow text-[10px]"></span></th>
                 <th class="sortable text-left px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="category">Categoria <span class="sort-arrow text-[10px]"></span></th>
                 <th class="sortable text-right px-4 py-3 font-semibold cursor-pointer hover:text-indigo-600 select-none" data-sort="amount">Importo <span class="sort-arrow text-[10px]"></span></th>
+                <th class="px-4 py-3 text-center font-semibold text-slate-400 w-10"></th>
               </tr>
             </thead>
             <tbody id="transactions-tbody" class="divide-y divide-slate-100">
               <tr>
-                <td colspan="5" class="text-center text-slate-400 py-10">Nessuna transazione. Carica un file CSV o usa la simulazione API.</td>
+                <td colspan="6" class="text-center text-slate-400 py-10">Nessuna transazione. Carica un file CSV o usa la simulazione API.</td>
               </tr>
             </tbody>
           </table>
@@ -311,6 +317,9 @@
     let sortDirection = 'desc';
     let pageSize = 25;
     let currentPage = 1;
+    let editingId = null;
+    let splittingId = null;
+    let splitParts = [];
     let donutChart = null;
     let barChart = null;
 
@@ -644,7 +653,7 @@
           const row = rows[r].map(h => String(h).trim().toLowerCase());
           console.log('Row', r, 'cells:', row);
           const hasData = row.some(h => h.includes('data'));
-          const hasDesc = row.some(h => h.includes('descrizion') || h.includes('operazione') || h.includes('dettagli') || h.includes('causale'));
+          const hasDesc = row.some(h => h.includes('descrizion') || h.includes('operazione') || h.includes('dettagli') || h.includes('causale') || h.includes('tipo'));
           const hasAmount = row.some(h => h.includes('importo') || h.includes('dare') || h.includes('avere') || h === 'amount' || h.includes('lordo') || h.includes('netto'));
           console.log('  hasData:', hasData, 'hasDesc:', hasDesc, 'hasAmount:', hasAmount);
           if (hasData && hasDesc && hasAmount) return r;
@@ -727,8 +736,10 @@
         }
       } else if (bank === 'paypal') {
         const dataIdx = header.findIndex(h => h.includes('data'));
-        const descIdx = header.findIndex(h => h.includes('descrizion'));
+        const descIdx = header.findIndex(h => h.includes('descrizion') || h.includes('tipo'));
+        const nameIdx = header.findIndex(h => h === 'nome');
         const amountIdx = header.findIndex(h => h.includes('lordo'));
+        const msgIdx = header.findIndex(h => h.includes('messaggio'));
         if (dataIdx === -1 || descIdx === -1 || amountIdx === -1)
           throw new Error('Colonne PayPal non trovate (Data, Descrizione, Lordo).');
 
@@ -744,7 +755,16 @@
           if (!row[dataIdx] || row[amountIdx] == null) continue;
           const amount = parseItalianNumber(serializeCellValue(row[amountIdx]));
           if (amount === 0) continue;
-          const description = serializeCellValue(row[descIdx]) || 'Transazione PayPal';
+          let description = '';
+          if (nameIdx !== -1) {
+            const name = serializeCellValue(row[nameIdx]);
+            if (name) description = name + ' - ';
+          }
+          description += serializeCellValue(row[descIdx]) || 'Transazione PayPal';
+          if (msgIdx !== -1) {
+            const msg = serializeCellValue(row[msgIdx]);
+            if (msg) description += ' (' + msg + ')';
+          }
           result.push({
             id: uuid(), date: parsePayPalDate(row[dataIdx]),
             description, amount, bank: 'PayPal',
@@ -973,7 +993,7 @@
       countEl.textContent = filtered.length + ' / ' + transactions.length + ' transazioni';
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-slate-400 py-10">${
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-slate-400 py-10">${
           transactions.length === 0
             ? 'Nessuna transazione. Carica un file CSV o usa la simulazione API.'
             : 'Nessuna transazione corrisponde ai filtri.'
@@ -1011,39 +1031,317 @@
           ? 'bg-emerald-100 text-emerald-700'
           : t.bank === 'Revolut'
           ? 'bg-sky-100 text-sky-700'
+          : t.bank === 'Contanti'
+          ? 'bg-amber-100 text-amber-700'
           : 'bg-indigo-100 text-indigo-700';
-        const bankLabel = t.bank === 'Intesa Sanpaolo' ? 'ISP' : t.bank === 'Revolut' ? 'REV' : 'PYP';
+        const bankLabel = t.bank === 'Intesa Sanpaolo' ? 'ISP' : t.bank === 'Revolut' ? 'REV' : t.bank === 'Contanti' ? 'CON' : 'PYP';
         const amountClass = t.amount >= 0 ? 'text-emerald-600' : 'text-red-500';
         const txIcon = getCategoryIcon(t.category);
         const catOptions = getAllCategories().map(c =>
           `<option value="${c.name}" ${c.name === t.category ? 'selected' : ''}>${c.icon || '📦'} ${c.name}</option>`
         ).join('');
 
-        return `<tr data-id="${t.id}" class="hover:bg-slate-50 transition-colors">
-          <td class="px-4 py-2.5 whitespace-nowrap text-slate-600">${formatDate(t.date)}</td>
-          <td class="px-4 py-2.5 whitespace-nowrap">
-            <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${bankBadgeClass}">${bankLabel}</span>
-          </td>
-          <td class="px-4 py-2.5 text-slate-700 max-w-xs truncate" title="${t.description}">${t.description}</td>
-          <td class="px-4 py-2.5 whitespace-nowrap flex items-center gap-1">
-            <span>${txIcon}</span>
-            <select class="category-select text-xs border border-slate-300 rounded px-1.5 py-1 focus:ring-2 focus:ring-indigo-400 outline-none bg-white" data-id="${t.id}">
-              ${catOptions}
-            </select>
-          </td>
-          <td class="px-4 py-2.5 whitespace-nowrap text-right font-semibold ${amountClass}">${formatCurrency(t.amount)}</td>
+        const isEditing = String(t.id) === editingId;
+        const dateHtml = isEditing
+          ? `<input type="date" class="date-input border border-indigo-400 rounded px-1.5 py-0.5 text-xs outline-none w-full" value="${t.date}" data-id="${t.id}">`
+          : `<span class="text-slate-600 text-xs">${formatDate(t.date)}</span>`;
+        const bankHtml = isEditing
+          ? `<select class="bank-input text-xs border border-indigo-400 rounded px-1.5 py-1 outline-none bg-white" data-id="${t.id}">
+               <option value="Intesa Sanpaolo" ${t.bank === 'Intesa Sanpaolo' ? 'selected' : ''}>Intesa Sanpaolo</option>
+               <option value="Revolut" ${t.bank === 'Revolut' ? 'selected' : ''}>Revolut</option>
+               <option value="PayPal" ${t.bank === 'PayPal' ? 'selected' : ''}>PayPal</option>
+               <option value="Contanti" ${t.bank === 'Contanti' ? 'selected' : ''}>Contanti</option>
+             </select>`
+          : `<span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${bankBadgeClass}">${bankLabel}</span>`;
+        const descHtml = isEditing
+          ? `<input type="text" class="desc-input w-full bg-transparent border border-indigo-400 rounded px-1.5 py-0.5 text-xs outline-none" value="${t.description.replace(/"/g, '&quot;')}" data-id="${t.id}">`
+          : `<span class="text-slate-700 text-xs leading-relaxed" title="${t.description.replace(/"/g, '&quot;')}">${t.description}</span>`;
+        const catHtml = isEditing
+          ? `<select class="category-select text-xs border border-indigo-400 rounded px-1.5 py-1 outline-none bg-white" data-id="${t.id}">${catOptions}</select>`
+          : `<span class="text-xs text-slate-600">${txIcon} ${t.category}</span>`;
+        const amountHtml = isEditing
+          ? `<input type="number" step="0.01" class="amount-input text-right border border-indigo-400 rounded px-1.5 py-0.5 text-xs outline-none w-24" value="${t.amount}" data-id="${t.id}">`
+          : `<span class="font-semibold ${amountClass}">${formatCurrency(t.amount)}</span>`;
+        const menuHtml = isEditing
+          ? `<button class="tx-menu-btn text-slate-400 hover:text-slate-600 transition-colors text-lg leading-none" data-id="${t.id}">&#8942;</button>
+             <div class="tx-menu-dropdown hidden bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 min-w-[140px]">
+               <button class="tx-menu-save w-full text-left px-3 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-2" data-id="${t.id}">&#10003; Salva</button>
+               <button class="tx-menu-cancel w-full text-left px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2" data-id="${t.id}">&#8634; Annulla</button>
+             </div>`
+          : `<button class="tx-menu-btn text-slate-400 hover:text-slate-600 transition-colors text-lg leading-none" data-id="${t.id}">&#8942;</button>
+              <div class="tx-menu-dropdown hidden bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 min-w-[140px]">
+                <button class="tx-menu-edit w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 flex items-center gap-2" data-id="${t.id}">&#9998; Modifica</button>
+                <button class="tx-menu-split w-full text-left px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-50 flex items-center gap-2" data-id="${t.id}">&#8621; Split</button>
+                <button class="tx-menu-delete w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2" data-id="${t.id}">&#10005; Elimina</button>
+              </div>`;
+
+        const isSplit = String(t.id) === splittingId;
+        let rowHtml = `<tr data-id="${t.id}" class="hover:bg-slate-50 transition-colors ${isSplit ? 'bg-indigo-50/40' : ''}">
+          <td class="px-4 py-2.5 whitespace-nowrap text-slate-600">${dateHtml}</td>
+          <td class="px-4 py-2.5 whitespace-nowrap">${bankHtml}</td>
+          <td class="px-4 py-2.5 text-slate-700 max-w-xs">${descHtml}</td>
+          <td class="px-4 py-2.5 whitespace-nowrap">${catHtml}</td>
+          <td class="px-4 py-2.5 whitespace-nowrap text-right">${amountHtml}</td>
+          <td class="px-2 py-2.5 whitespace-nowrap text-center relative">${isSplit ? (isEditing ? `<button class="tx-menu-btn text-emerald-500 hover:text-emerald-700 transition-colors text-lg leading-none" data-id="${t.id}">&#8942;</button>
+              <div class="tx-menu-dropdown hidden bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1 min-w-[140px]">
+                <button class="tx-menu-save w-full text-left px-3 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-2" data-id="${t.id}">&#10003; Salva</button>
+                <button class="tx-menu-cancel w-full text-left px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2" data-id="${t.id}">&#8634; Annulla</button>
+              </div>` : menuHtml) : menuHtml}</td>
         </tr>`;
+        if (isSplit) {
+          for (let si = 0; si < splitParts.length; si++) {
+            const sp = splitParts[si];
+            rowHtml += `<tr class="bg-amber-50/30 border-t-0" data-split="${si}">
+              <td class="px-4 py-2 whitespace-nowrap">
+                <input type="date" class="split-date border border-amber-400 rounded px-1.5 py-0.5 text-xs outline-none w-full" value="${sp.date}">
+              </td>
+              <td class="px-4 py-2 whitespace-nowrap">
+                <select class="split-bank text-xs border border-amber-400 rounded px-1.5 py-1 outline-none bg-white">
+                  <option value="Intesa Sanpaolo" ${sp.bank === 'Intesa Sanpaolo' ? 'selected' : ''}>Intesa Sanpaolo</option>
+                  <option value="Revolut" ${sp.bank === 'Revolut' ? 'selected' : ''}>Revolut</option>
+                  <option value="PayPal" ${sp.bank === 'PayPal' ? 'selected' : ''}>PayPal</option>
+                  <option value="Contanti" ${sp.bank === 'Contanti' ? 'selected' : ''}>Contanti</option>
+                </select>
+              </td>
+              <td class="px-4 py-2 text-slate-700 max-w-xs">
+                <input type="text" class="split-desc w-full bg-transparent border border-amber-400 rounded px-1.5 py-0.5 text-xs outline-none" value="${sp.description.replace(/"/g, '&quot;')}">
+              </td>
+              <td class="px-4 py-2 whitespace-nowrap">
+                <select class="split-cat text-xs border border-amber-400 rounded px-1.5 py-1 outline-none bg-white">
+                  ${getAllCategories().map(c => `<option value="${c.name}" ${c.name === sp.category ? 'selected' : ''}>${c.icon || '📦'} ${c.name}</option>`).join('')}
+                </select>
+              </td>
+              <td class="px-4 py-2 whitespace-nowrap text-right">
+                <input type="number" step="0.01" class="split-amount text-right border border-amber-400 rounded px-1.5 py-0.5 text-xs outline-none w-24" value="${sp.amount}">
+              </td>
+              <td class="px-2 py-2 whitespace-nowrap text-center flex items-center gap-1 justify-center">
+                <button class="split-del-btn text-red-400 hover:text-red-600 transition-colors text-sm leading-none" title="Rimuovi split" data-split="${si}">&#10005;</button>
+                <button class="split-add-btn text-amber-500 hover:text-amber-700 transition-colors text-base leading-none" title="Aggiungi split" data-split="${si}">&#10133;</button>
+              </td>
+            </tr>`;
+          }
+        }
+        return rowHtml;
       }).join('');
 
-      document.querySelectorAll('.category-select').forEach(sel => {
-        sel.addEventListener('change', function() {
+      document.querySelectorAll('.tx-menu-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          document.querySelectorAll('.tx-menu-dropdown').forEach(m => m.classList.add('hidden'));
+          const menu = this.nextElementSibling;
+          menu.classList.toggle('hidden');
+          if (!menu.classList.contains('hidden')) {
+            menu.style.position = 'fixed';
+            menu.style.bottom = '';
+            menu.style.right = '';
+            const rect = this.getBoundingClientRect();
+            menu.style.top = (rect.top - menu.offsetHeight - 4) + 'px';
+            menu.style.left = (rect.right - menu.offsetWidth) + 'px';
+          } else {
+            menu.style.position = '';
+            menu.style.top = '';
+            menu.style.left = '';
+          }
+        });
+      });
+      document.querySelectorAll('.tx-menu-edit').forEach(btn => {
+        btn.addEventListener('click', function() {
           const id = this.dataset.id;
-          const newCat = this.value;
-          const tx = transactions.find(t => t.id === id);
-          if (tx) {
-            tx.category = newCat;
+          this.closest('.tx-menu-dropdown').classList.add('hidden');
+          editingId = id;
+          renderTable();
+        });
+      });
+      document.querySelectorAll('.tx-menu-split').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.dataset.id;
+          this.closest('.tx-menu-dropdown').classList.add('hidden');
+          const tx = transactions.find(t => String(t.id) === id);
+          if (!tx) return;
+          const half = tx.amount / 2;
+          splittingId = id;
+          splitParts = [
+            { date: tx.date, bank: tx.bank, description: '', amount: half, category: 'Altro' },
+            { date: tx.date, bank: tx.bank, description: '', amount: half, category: 'Altro' },
+          ];
+          editingId = id;
+          renderTable();
+        });
+      });
+      document.querySelectorAll('.tx-menu-save').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.dataset.id;
+          if (splittingId && String(splittingId) === id) {
+            const row = this.closest('tr');
+            const origDate = row.querySelector('.date-input')?.value || '';
+            const origBank = row.querySelector('.bank-input')?.value || '';
+            const origDesc = row.querySelector('.desc-input')?.value.trim() || '';
+            const origCat = row.querySelector('.category-select')?.value || '';
+            const origAmount = parseFloat(row.querySelector('.amount-input')?.value) || 0;
+            if (!origDate || !origDesc || isNaN(origAmount) || origAmount === 0 || !origBank || !origCat) {
+              showToast('Compila tutti i campi della transazione originale.', 'error'); return;
+            }
+            const tbody = document.getElementById('transactions-tbody');
+            const splitRows = tbody.querySelectorAll('tr[data-split]');
+            const parts = [];
+            let valid = true;
+            splitRows.forEach(sr => {
+              const sd = sr.querySelector('.split-date')?.value || '';
+              const sb = sr.querySelector('.split-bank')?.value || '';
+              const sdesc = sr.querySelector('.split-desc')?.value.trim() || '';
+              const scat = sr.querySelector('.split-cat')?.value || '';
+              const samount = parseFloat(sr.querySelector('.split-amount')?.value) || 0;
+              if (!sd || !sdesc || isNaN(samount) || samount === 0 || !sb || !scat) valid = false;
+              else parts.push({ date: sd, bank: sb, description: sdesc, amount: samount, category: scat });
+            });
+            if (!valid) { showToast('Compila tutti i campi degli split.', 'error'); return; }
+            if (parts.length === 0) { showToast('Aggiungi almeno uno split.', 'error'); return; }
+            transactions = transactions.filter(t => String(t.id) !== id);
+            for (const p of parts) {
+              transactions.push({ id: nextId++, date: p.date, bank: p.bank, description: p.description, amount: p.amount, category: p.category });
+            }
+            splittingId = null; splitParts = []; editingId = null;
+            this.closest('.tx-menu-dropdown').classList.add('hidden');
             updateDashboard();
-            showToast('Categoria aggiornata a "' + newCat + '"', 'success');
+            showToast('Transazione suddivisa in ' + parts.length + ' parti.', 'success');
+            return;
+          }
+          const row = this.closest('tr');
+          const dateInput = row.querySelector('.date-input');
+          const bankSelect = row.querySelector('.bank-input');
+          const descInput = row.querySelector('.desc-input');
+          const catSelect = row.querySelector('.category-select');
+          const amountInput = row.querySelector('.amount-input');
+          const newDate = dateInput ? dateInput.value : '';
+          const newBank = bankSelect ? bankSelect.value : '';
+          const newDesc = descInput ? descInput.value.trim() : '';
+          const newCat = catSelect ? catSelect.value : '';
+          const newAmount = amountInput ? parseFloat(amountInput.value) : NaN;
+          const tx = transactions.find(t => String(t.id) === id);
+          if (!tx) return;
+          if (!newDate) { showToast('Inserisci una data.', 'error'); return; }
+          if (!newDesc) { showToast('Inserisci una descrizione.', 'error'); return; }
+          if (isNaN(newAmount) || newAmount === 0) { showToast('Inserisci un importo valido.', 'error'); return; }
+          if (!newBank) { showToast('Seleziona una banca.', 'error'); return; }
+          if (!newCat) { showToast('Seleziona una categoria.', 'error'); return; }
+          tx.date = newDate;
+          tx.bank = newBank;
+          tx.description = newDesc;
+          tx.amount = newAmount;
+          tx.category = newCat;
+          editingId = null;
+          this.closest('.tx-menu-dropdown').classList.add('hidden');
+          updateDashboard();
+          showToast('Transazione modificata.', 'success');
+        });
+      });
+      document.querySelectorAll('.tx-menu-cancel').forEach(btn => {
+        btn.addEventListener('click', function() {
+          splittingId = null; splitParts = [];
+          editingId = null;
+          this.closest('.tx-menu-dropdown').classList.add('hidden');
+          renderTable();
+        });
+      });
+      document.querySelectorAll('.tx-menu-delete').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const id = this.dataset.id;
+          const tx = transactions.find(t => String(t.id) === id);
+          if (!tx) return;
+          this.closest('.tx-menu-dropdown').classList.add('hidden');
+          if (!confirm('Eliminare "' + tx.description + '"?')) return;
+          transactions = transactions.filter(t => String(t.id) !== id);
+          updateDashboard();
+          showToast('Transazione eliminata', 'info');
+        });
+      });
+      document.querySelectorAll('.split-del-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const si = parseInt(this.dataset.split);
+          if (splitParts.length <= 1) { showToast('Deve esserci almeno uno split.', 'error'); return; }
+          const tbody = document.getElementById('transactions-tbody');
+          const splitRows = tbody.querySelectorAll('tr[data-split]');
+          splitRows.forEach((r, i) => {
+            if (i < splitParts.length) {
+              splitParts[i].date = r.querySelector('.split-date')?.value || splitParts[i].date;
+              splitParts[i].bank = r.querySelector('.split-bank')?.value || splitParts[i].bank;
+              splitParts[i].description = r.querySelector('.split-desc')?.value || '';
+              splitParts[i].category = r.querySelector('.split-cat')?.value || 'Altro';
+              splitParts[i].amount = parseFloat(r.querySelector('.split-amount')?.value) || 0;
+            }
+          });
+          const total = splitParts.reduce((s, p) => s + p.amount, 0);
+          splitParts.splice(si, 1);
+          const equal = total / splitParts.length;
+          for (let i = 0; i < splitParts.length; i++) {
+            splitParts[i].amount = i < splitParts.length - 1 ? equal : total - equal * (splitParts.length - 1);
+          }
+          renderTable();
+        });
+      });
+      document.querySelectorAll('.split-add-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const si = parseInt(this.dataset.split);
+          const row = this.closest('tr');
+          const date = row.querySelector('.split-date')?.value || splitParts[0]?.date || '';
+          const bank = row.querySelector('.split-bank')?.value || splitParts[0]?.bank || 'Intesa Sanpaolo';
+
+          const tbody = document.getElementById('transactions-tbody');
+          const splitRows = tbody.querySelectorAll('tr[data-split]');
+          splitRows.forEach((r, i) => {
+            if (i < splitParts.length) {
+              splitParts[i].date = r.querySelector('.split-date')?.value || splitParts[i].date;
+              splitParts[i].bank = r.querySelector('.split-bank')?.value || splitParts[i].bank;
+              splitParts[i].description = r.querySelector('.split-desc')?.value || '';
+              splitParts[i].category = r.querySelector('.split-cat')?.value || 'Altro';
+              splitParts[i].amount = parseFloat(r.querySelector('.split-amount')?.value) || 0;
+            }
+          });
+
+          const total = splitParts.reduce((s, p) => s + p.amount, 0);
+          splitParts.splice(si + 1, 0, { date, bank, description: '', amount: 0, category: 'Altro' });
+          const equal = total / splitParts.length;
+          for (let i = 0; i < splitParts.length; i++) {
+            splitParts[i].amount = i < splitParts.length - 1 ? equal : total - equal * (splitParts.length - 1);
+          }
+          renderTable();
+        });
+      });
+      document.querySelectorAll('.split-desc').forEach(inp => {
+        inp.addEventListener('input', function() {
+          const desc = this.value.trim();
+          if (!desc) return;
+          const row = this.closest('tr');
+          const amount = parseFloat(row.querySelector('.split-amount')?.value) || -1;
+          row.querySelector('.split-cat').value = categorize(desc, amount);
+        });
+      });
+      document.querySelectorAll('.split-amount').forEach(inp => {
+        inp.addEventListener('input', function() {
+          const tbody = document.getElementById('transactions-tbody');
+          const origInput = tbody.querySelector('.amount-input');
+          if (!origInput) return;
+          const origAmount = parseFloat(origInput.value) || 0;
+          const allSplits = tbody.querySelectorAll('.split-amount');
+          if (allSplits.length < 2) return;
+          let changedIdx = -1;
+          for (let i = 0; i < allSplits.length; i++) {
+            if (allSplits[i] === this) { changedIdx = i; break; }
+          }
+          if (changedIdx === -1) return;
+          const values = [];
+          allSplits.forEach(sa => values.push(parseFloat(sa.value) || 0));
+          const nextIdx = (changedIdx + 1) % values.length;
+          let sumExceptNext = 0;
+          for (let i = 0; i < values.length; i++) {
+            if (i !== nextIdx) sumExceptNext += values[i];
+          }
+          const newNext = origAmount - sumExceptNext;
+          allSplits[nextIdx].value = newNext.toFixed(2);
+          const row = this.closest('tr');
+          const desc = row.querySelector('.split-desc')?.value.trim();
+          if (desc) {
+            row.querySelector('.split-cat').value = categorize(desc, parseFloat(this.value) || -1);
           }
         });
       });
@@ -1240,7 +1538,7 @@
             const parsed = parseExcel(new Uint8Array(e.target.result), bank);
             console.log('=== FINAL === Transazioni parse:', parsed.length);
             addTransactions(parsed);
-            showToast(`Caricate ${parsed.length} transazioni da ${bank === 'intesa' ? 'Intesa Sanpaolo' : bank === 'revolut' ? 'Revolut' : 'PayPal'} (Excel)`, 'success');
+            showToast(`Caricate ${parsed.length} transazioni da ${bank === 'intesa' ? 'Intesa Sanpaolo' : bank === 'revolut' ? 'Revolut' : bank === 'contanti' ? 'Contanti' : 'PayPal'} (Excel)`, 'success');
           } catch (err) {
             console.error('Parse error:', err);
             showToast(err.message, 'error');
@@ -1256,7 +1554,7 @@
           try {
             const parsed = parseCSV(e.target.result, bank);
             addTransactions(parsed);
-            showToast(`Caricate ${parsed.length} transazioni da ${bank === 'intesa' ? 'Intesa Sanpaolo' : bank === 'revolut' ? 'Revolut' : 'PayPal'}`, 'success');
+            showToast(`Caricate ${parsed.length} transazioni da ${bank === 'intesa' ? 'Intesa Sanpaolo' : bank === 'revolut' ? 'Revolut' : bank === 'contanti' ? 'Contanti' : 'PayPal'}`, 'success');
           } catch (err) {
             showToast(err.message, 'error');
           }
@@ -1396,6 +1694,16 @@
       document.getElementById('filter-type').addEventListener('change', function() { currentPage = 1; renderTable(); });
       document.getElementById('filter-year').addEventListener('change', function() { currentPage = 1; renderTable(); });
       document.getElementById('filter-month').addEventListener('change', function() { currentPage = 1; renderTable(); });
+      document.getElementById('reset-filters-btn').addEventListener('click', function() {
+        document.getElementById('filter-bank').value = '';
+        document.getElementById('filter-category').value = '';
+        document.getElementById('filter-type').value = '';
+        document.getElementById('filter-year').value = '';
+        document.getElementById('filter-month').value = '';
+        document.getElementById('search-input').value = '';
+        currentPage = 1;
+        renderTable();
+      });
 
       document.querySelectorAll('.sortable').forEach(th => {
         th.addEventListener('click', function() {
@@ -1508,6 +1816,12 @@
       });
       document.getElementById('last-page').addEventListener('click', function() {
         currentPage = 99999; renderTable();
+      });
+
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.tx-menu-btn, .tx-menu-dropdown')) {
+          document.querySelectorAll('.tx-menu-dropdown').forEach(m => { m.classList.add('hidden'); m.style.position = ''; m.style.bottom = ''; m.style.right = ''; });
+        }
       });
     });
   </script>
