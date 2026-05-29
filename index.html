@@ -690,9 +690,13 @@
     }
 
     function formatDate(dateStr) {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
-      return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+      if (!dateStr) return '';
+      const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) {
+        const months = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+        return m[3] + ' ' + months[parseInt(m[2]) - 1] + ' ' + m[1];
+      }
+      return dateStr;
     }
 
     function parseItalianNumber(str) {
@@ -804,6 +808,20 @@
       return parseRowsFromArray(rows, bank);
     }
 
+    function normalizeDate(str) {
+      if (!str) return '';
+      str = String(str).trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10);
+      const m = str.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{4})$/);
+      if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+      const months = { gen:1,feb:1,mar:1,apr:1,mag:1,giu:1,lug:1,ago:1,set:1,ott:1,nov:1,dic:1, jan:1,feb:1,mar:1,apr:1,may:1,jun:1,jul:1,aug:1,sep:1,oct:1,nov:1,dec:1 };
+      const md = str.match(/^(\d{1,2})\s+([a-z]{3})\s+(\d{4})/i);
+      if (md) return md[3] + '-' + String(months[md[2].toLowerCase()] || 1).padStart(2,'0') + '-' + md[1].padStart(2,'0');
+      const dm = str.match(/^([a-z]{3})\s+(\d{1,2}),?\s+(\d{4})/i);
+      if (dm) return dm[3] + '-' + String(months[dm[1].toLowerCase()] || 1).padStart(2,'0') + '-' + dm[2].padStart(2,'0');
+      return str;
+    }
+
     function serializeCellValue(v) {
       if (v == null) return '';
       if (v instanceof Date) {
@@ -872,7 +890,7 @@
         let skipped = 0, parsed = 0;
         for (let i = headerRow + 1; i < rows.length; i++) {
           const row = rows[i];
-          const dateVal = row[dataIdx] ? serializeCellValue(row[dataIdx]) : '';
+          const dateVal = row[dataIdx] ? normalizeDate(serializeCellValue(row[dataIdx])) : '';
           const descVal = row[descIdx] ? serializeCellValue(row[descIdx]) : '';
           const amountRaw = row[amountIdx];
           if (!dateVal || amountRaw == null) { skipped++; continue; }
@@ -911,7 +929,7 @@
           let amount = amountIdx !== -1 ? parseStandardNumber(serializeCellValue(row[amountIdx])) : 0;
           const fee = feeIdx !== -1 ? parseStandardNumber(serializeCellValue(row[feeIdx])) : 0;
           result.push({
-            id: uuid(), date: serializeCellValue(row[dataIdx]),
+            id: uuid(), date: normalizeDate(serializeCellValue(row[dataIdx])),
             description: serializeCellValue(row[descIdx]) || 'Transazione Revolut',
             amount: amount - fee, bank: bankName,
             category: categorize(serializeCellValue(row[descIdx]) || '', amount - fee),
@@ -930,7 +948,7 @@
           const s = String(v).trim();
           const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
           if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
-          return serializeCellValue(v);
+          return normalizeDate(serializeCellValue(v));
         };
 
         for (let i = headerRow + 1; i < rows.length; i++) {
@@ -970,7 +988,7 @@
 
         for (let i = headerRow + 1; i < rows.length; i++) {
           const row = rows[i];
-          const dateVal = row[dateIdx] ? serializeCellValue(row[dateIdx]) : '';
+          const dateVal = row[dateIdx] ? normalizeDate(serializeCellValue(row[dateIdx])) : '';
           if (!dateVal) continue;
 
           let amount;
@@ -1299,7 +1317,7 @@
         const checked = selectedIds.has(String(t.id));
         let rowHtml = `<tr data-id="${t.id}" class="hover:bg-slate-50 transition-colors ${isSplit ? 'bg-indigo-50/40' : ''} ${checked ? 'bg-indigo-50/30' : ''}">
           <td class="px-3 py-2.5 text-center w-8">
-            <input type="checkbox" class="tx-checkbox w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 cursor-pointer" data-id="${t.id}" ${checked ? 'checked' : ''}>
+            ${isSplit ? '' : `<input type="checkbox" class="tx-checkbox w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 cursor-pointer" data-id="${t.id}" ${checked ? 'checked' : ''}>`}
           </td>
           <td class="px-4 py-2.5 whitespace-nowrap text-slate-600">${dateHtml}</td>
           <td class="px-4 py-2.5 whitespace-nowrap">${bankHtml}</td>
@@ -1316,6 +1334,7 @@
           for (let si = 0; si < splitParts.length; si++) {
             const sp = splitParts[si];
             rowHtml += `<tr class="bg-amber-50/30 border-t-0" data-split="${si}">
+              <td class="px-3 py-2 text-center w-8"></td>
               <td class="px-4 py-2 whitespace-nowrap">
                 <input type="date" class="split-date border border-amber-400 rounded px-1.5 py-0.5 text-xs outline-none w-full" value="${sp.date}">
               </td>
