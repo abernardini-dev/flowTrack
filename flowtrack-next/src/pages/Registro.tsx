@@ -5,6 +5,7 @@ import { useMemo, useState, useEffect, useCallback, Fragment } from 'react'
 import { formatCurrency, formatDate, uuid } from '@/lib/utils'
 import { getBankStyle } from '@/lib/importers/bank-utils'
 import { categorize } from '@/lib/categorizer'
+import { Search, ChevronDown } from 'lucide-react'
 import type { SortColumn, SplitPart } from '@/types'
 
 export default function RegistroPage() {
@@ -23,12 +24,14 @@ export default function RegistroPage() {
   const persistTransactions = useStore(s => s.persistTransactions)
   const showToast = useStore(s => s.showToast)
 
+  const [showFilterChips, setShowFilterChips] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterBank, setFilterBank] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterYear, setFilterYear] = useState('')
   const [filterMonth, setFilterMonth] = useState('')
+  const [filterDate, setFilterDate] = useState('')
   const [sortColumn, setSortColumn] = useState<SortColumn>('date')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [pageSize, setPageSize] = useState(25)
@@ -39,7 +42,6 @@ export default function RegistroPage() {
   const [splittingId, setSplittingId] = useState<string | null>(null)
   const [splitParts, setSplitParts] = useState<SplitPart[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
   const [addDate, setAddDate] = useState('')
   const [addDesc, setAddDesc] = useState('')
   const [addAmount, setAddAmount] = useState('')
@@ -51,6 +53,8 @@ export default function RegistroPage() {
 
   useEffect(() => { setAddDate(new Date().toISOString().slice(0, 10)) }, [])
 
+  const hasFilters = searchQuery || filterBank || filterCategory || filterType || filterYear || filterMonth || filterDate
+  useEffect(() => { setShowFilterChips(!!hasFilters) }, [hasFilters])
   useEffect(() => { if (!editAllMode) { persistTransactions() } }, [transactions, editAllMode, persistTransactions])
 
   useEffect(() => {
@@ -82,6 +86,7 @@ export default function RegistroPage() {
     else if (filterType === 'uscite') f = f.filter(t => t.amount < 0)
     if (filterYear) f = f.filter(t => { const d = new Date(t.date); return !isNaN(d.getTime()) && String(d.getFullYear()) === filterYear })
     if (filterMonth) f = f.filter(t => { const d = new Date(t.date); return !isNaN(d.getTime()) && String(d.getMonth() + 1) === filterMonth })
+    if (filterDate) f = f.filter(t => t.date.startsWith(filterDate))
     return f
   }, [transactions, searchQuery, filterBank, filterCategory, filterType, filterYear, filterMonth])
 
@@ -311,91 +316,136 @@ export default function RegistroPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-slate-800">
+      {/* Header: title + actions */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <h2 className="text-xl font-bold text-slate-800">
           Registro Transazioni
           <span className="text-xs font-normal text-slate-400 ml-2">{filtered.length} / {transactions.length} transazioni</span>
         </h2>
+        <div className="flex items-center gap-2">
+          <button onClick={toggleEditAll} className={`text-xs border rounded-full px-4 py-2 transition-colors ${editAllMode ? 'bg-amber-100 border-amber-400 text-amber-700' : 'border-slate-300 text-slate-600 hover:bg-slate-100'}`}>&#9998; {editAllMode ? 'Esci modifica' : 'Modifica'}</button>
+          <button onClick={exportCSV} className="text-xs border border-slate-300 rounded-full px-4 py-2 text-slate-600 hover:bg-slate-100 transition-colors">&#8595; Scarica</button>
+          <button onClick={() => setShowAddForm(v => !v)} className="bg-slate-800 text-white text-sm px-5 py-2 rounded-full font-medium hover:bg-slate-700 transition-colors">{showAddForm ? '× Annulla' : '+ Nuova Transazione'}</button>
+        </div>
       </div>
 
+      {/* Add form */}
       {showAddForm && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex flex-wrap items-end gap-2">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap items-end gap-2 shadow-sm">
           <div className="flex flex-col gap-0.5">
             <label className="text-[10px] text-slate-500 font-medium">Data</label>
-            <input type="date" value={addDate} onChange={e => setAddDate(e.target.value)} className="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" />
+            <input type="date" value={addDate} onChange={e => setAddDate(e.target.value)} className="bg-slate-100 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" />
           </div>
           <div className="flex flex-col gap-0.5 flex-1 min-w-[160px]">
             <label className="text-[10px] text-slate-500 font-medium">Descrizione</label>
-            <input type="text" placeholder="es. Supermercato" value={addDesc} onChange={e => { setAddDesc(e.target.value); setAddCategory(categorize(e.target.value, parseFloat(addAmount) || -1, customRules)) }} className="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" />
+            <input type="text" placeholder="es. Supermercato" value={addDesc} onChange={e => { setAddDesc(e.target.value); setAddCategory(categorize(e.target.value, parseFloat(addAmount) || -1, customRules)) }} className="bg-slate-100 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" />
           </div>
           <div className="flex flex-col gap-0.5 w-[100px]">
             <label className="text-[10px] text-slate-500 font-medium">Importo (&euro;)</label>
-            <input type="number" step="0.01" placeholder="0.00" value={addAmount} onChange={e => { setAddAmount(e.target.value); if (addDesc) setAddCategory(categorize(addDesc, parseFloat(e.target.value) || -1, customRules)) }} className="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" />
+            <input type="number" step="0.01" placeholder="0.00" value={addAmount} onChange={e => { setAddAmount(e.target.value); if (addDesc) setAddCategory(categorize(addDesc, parseFloat(e.target.value) || -1, customRules)) }} className="bg-slate-100 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" />
           </div>
           <div className="flex flex-col gap-0.5">
             <label className="text-[10px] text-slate-500 font-medium">Banca</label>
-            <select value={addBank} onChange={e => setAddBank(e.target.value)} className="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400 bg-white">
+            <select value={addBank} onChange={e => setAddBank(e.target.value)} className="bg-slate-100 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
               <option value="">Seleziona...</option>
               {allBanks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
             </select>
           </div>
           <div className="flex flex-col gap-0.5">
             <label className="text-[10px] text-slate-500 font-medium">Categoria</label>
-            <select value={addCategory} onChange={e => setAddCategory(e.target.value)} className="border border-slate-300 rounded px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400 bg-white">
+            <select value={addCategory} onChange={e => setAddCategory(e.target.value)} className="bg-slate-100 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400">
               <option value="">Seleziona...</option>
               {allCategories.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
             </select>
           </div>
-          <button onClick={addManualTx} className="bg-indigo-600 text-white text-xs px-4 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors">Salva</button>
-          <button onClick={() => setShowAddForm(false)} className="text-xs text-slate-500 px-2 py-1.5 hover:text-slate-700">Annulla</button>
+          <button onClick={addManualTx} className="bg-indigo-600 text-white text-xs px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium">Salva</button>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => setShowAddForm(true)} className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-indigo-50 hover:border-indigo-300 transition-colors bg-white flex items-center gap-1">+ Aggiungi</button>
-          <button onClick={toggleEditAll} className={`text-xs border rounded-lg px-3 py-1.5 transition-colors bg-white flex items-center gap-1 ${editAllMode ? 'bg-amber-100 border-amber-400 text-amber-700' : 'hover:bg-amber-50 hover:border-amber-300 border-slate-300'}`}>&#9998; {editAllMode ? 'Esci modifica' : 'Modifica'}</button>
-          <div className="relative">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">&#128269;</span>
-            <input type="text" placeholder="Cerca..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1) }} className="border border-slate-300 rounded-lg pl-7 pr-2 py-1.5 text-xs focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none w-60" />
+      {/* Filter Card */}
+      <div className="bg-stone-50 border border-stone-200 rounded-xl shadow-sm p-5 space-y-4">
+        {/* Controls row */}
+        <div className="flex w-full items-center gap-2">
+          <select value={filterBank} onChange={e => { setFilterBank(e.target.value); setCurrentPage(1) }} className="flex-1 bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400 min-w-0">
+            <option value="">Tutte le banche</option>
+            {allBanks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+          </select>
+          <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setCurrentPage(1) }} className="flex-1 bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400 min-w-0">
+            <option value="">Tutte le categorie</option>
+            {allCategories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+          </select>
+          <select value={filterType} onChange={e => { setFilterType(e.target.value); setCurrentPage(1) }} className="flex-1 bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400 min-w-0">
+            <option value="">Entrate e Uscite</option>
+            <option value="entrate">Solo Entrate</option>
+            <option value="uscite">Solo Uscite</option>
+          </select>
+          <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setCurrentPage(1) }} className="flex-1 bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400 min-w-0">
+            <option value="">Tutti gli anni</option>
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <div className="relative flex-[2] min-w-0">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input type="text" placeholder="Cerca..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1) }} className="w-full bg-slate-100 border border-slate-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400" />
           </div>
-          <button onClick={exportCSV} className="text-xs border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-indigo-50 hover:border-indigo-300 transition-colors bg-white flex items-center gap-1">&#8595; Scarica</button>
+          <input type="date" value={filterDate} onChange={e => { setFilterDate(e.target.value); setCurrentPage(1) }} className="flex-1 bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm leading-tight outline-none focus:ring-1 focus:ring-indigo-400 min-w-0" />
+          <div className="w-8 flex items-center justify-center shrink-0">
+            <button onClick={() => setShowFilterChips(v => !v)} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+              <ChevronDown size={18} className={`transition-transform duration-200 ${showFilterChips ? '' : 'rotate-180'}`} />
+            </button>
+          </div>
         </div>
-        <button onClick={() => setShowFilters(v => !v)} className="text-xs border border-slate-300 rounded-lg px-2 py-1.5 hover:bg-indigo-50 hover:border-indigo-300 transition-colors bg-white flex items-center gap-1">
-          &#9660; Filtri
-        </button>
-      </div>
 
-      {showFilters && (
-        <div className="flex flex-wrap items-center gap-2">
-            <select value={filterBank} onChange={e => { setFilterBank(e.target.value); setCurrentPage(1) }} className="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
-              <option value="">Tutte le banche</option>
-              {allBanks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-            </select>
-            <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setCurrentPage(1) }} className="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
-              <option value="">Tutte le categorie</option>
-              {allCategories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-            </select>
-            <select value={filterType} onChange={e => { setFilterType(e.target.value); setCurrentPage(1) }} className="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
-              <option value="">Entrate e Uscite</option>
-              <option value="entrate">Solo Entrate</option>
-              <option value="uscite">Solo Uscite</option>
-            </select>
-            <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setCurrentPage(1) }} className="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
-              <option value="">Tutti gli anni</option>
-              {years.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-            <select value={filterMonth} onChange={e => { setFilterMonth(e.target.value); setCurrentPage(1) }} className="text-xs border border-slate-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-400 outline-none bg-white">
-              <option value="">Tutti i mesi</option>
-              {['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'].map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-            </select>
-            <button onClick={() => { setFilterBank(''); setFilterCategory(''); setFilterType(''); setFilterYear(''); setFilterMonth(''); setSearchQuery(''); setCurrentPage(1) }} className="text-xs border border-red-300 text-red-500 rounded-lg px-2 py-1 hover:bg-red-50 transition-colors bg-white">Reset</button>
-          </div>
-        )}
+        {/* Active filter chips */}
+        <div className={`${showFilterChips ? '' : 'hidden'} flex flex-wrap items-center gap-1.5 min-h-[24px]`}>
+          {filterBank && (
+            <span className="inline-flex items-center gap-1.5 bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-full">
+              {allBanks.find(b => b.name === filterBank)?.name || filterBank}
+              <button onClick={() => setFilterBank('')} className="text-slate-400 hover:text-slate-600 leading-none">&times;</button>
+            </span>
+          )}
+          {filterCategory && (
+            <span className="inline-flex items-center gap-1.5 bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-full">
+              {filterCategory}
+              <button onClick={() => setFilterCategory('')} className="text-slate-400 hover:text-slate-600 leading-none">&times;</button>
+            </span>
+          )}
+          {filterType && (
+            <span className="inline-flex items-center gap-1.5 bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-full">
+              {filterType === 'entrate' ? 'Solo Entrate' : 'Solo Uscite'}
+              <button onClick={() => setFilterType('')} className="text-slate-400 hover:text-slate-600 leading-none">&times;</button>
+            </span>
+          )}
+          {filterYear && (
+            <span className="inline-flex items-center gap-1.5 bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-full">
+              Anno {filterYear}
+              {filterMonth && ` - ${['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'][parseInt(filterMonth) - 1]}`}
+              <button onClick={() => { setFilterYear(''); setFilterMonth('') }} className="text-slate-400 hover:text-slate-600 leading-none">&times;</button>
+            </span>
+          )}
+          {!filterYear && filterMonth && (
+            <span className="inline-flex items-center gap-1.5 bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-full">
+              {['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'][parseInt(filterMonth) - 1]}
+              <button onClick={() => setFilterMonth('')} className="text-slate-400 hover:text-slate-600 leading-none">&times;</button>
+            </span>
+          )}
+          {filterDate && (
+            <span className="inline-flex items-center gap-1.5 bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-full">
+              Data: {filterDate}
+              <button onClick={() => setFilterDate('')} className="text-slate-400 hover:text-slate-600 leading-none">&times;</button>
+            </span>
+          )}
+          {searchQuery && (
+            <span className="inline-flex items-center gap-1.5 bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-full">
+              Cerca: &ldquo;{searchQuery}&rdquo;
+              <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-600 leading-none">&times;</button>
+            </span>
+          )}
+        </div>
+      </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
+          <thead className="bg-slate-100 text-slate-700 text-xs uppercase tracking-wider">
             <tr>
               <th className="px-3 py-3 text-center w-8">
                 {!editAllMode && <input type="checkbox" className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 cursor-pointer" checked={selectedIds.size > 0 && selectedIds.size === pageRows.length && pageRows.length > 0} onChange={e => { pageRows.forEach(t => toggleSelectedId(t.id)); if (!e.target.checked) clearSelectedIds() }} />}
@@ -441,14 +491,14 @@ export default function RegistroPage() {
                         <span className="inline-block text-xs font-semibold px-2 py-0.5 rounded-full text-white" style={{ background: bStyle.color }}>{bStyle.label}</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-700 max-w-xs">
-                      {isEd ? <input type="text" defaultValue={tx.description} className="desc-input w-full bg-transparent border border-indigo-400 rounded px-1.5 py-0.5 text-xs outline-none" /> : <span className="text-xs leading-relaxed">{tx.description}</span>}
+                    <td className="px-4 py-2.5 text-slate-700 max-w-[200px]">
+                      {isEd ? <input type="text" defaultValue={tx.description} className="desc-input w-full bg-transparent border border-indigo-400 rounded px-1.5 py-0.5 text-xs outline-none" /> : <span className="text-xs leading-relaxed truncate block">{tx.description}</span>}
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap">
                       {isEd ? (
                         <select defaultValue={tx.category} className="category-select text-xs border border-indigo-400 rounded px-1.5 py-1 outline-none bg-white" dangerouslySetInnerHTML={{ __html: catOptions }} />
                       ) : (
-                        <span className="text-xs text-slate-600">{tx.category}</span>
+                        <span className="inline-block text-xs font-medium px-2.5 py-0.5 rounded-full" style={hexToPastel(allCategories.find(c => c.name === tx.category)?.color || '#94a3b8')}>{tx.category}</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap text-right">
@@ -593,4 +643,15 @@ function saveEditSingle(id: string) {
   const drop = row.parentElement?.querySelector('.tx-menu-dropdown')
   if (drop) drop.classList.add('hidden')
   store.showToast('Transazione modificata.', 'success')
+}
+
+function hexToPastel(hex: string): { backgroundColor: string; color: string } {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const darken = (c: number) => Math.max(0, Math.round(c * 0.55))
+  return {
+    backgroundColor: `rgba(${r},${g},${b},0.15)`,
+    color: `rgb(${darken(r)},${darken(g)},${darken(b)})`,
+  }
 }

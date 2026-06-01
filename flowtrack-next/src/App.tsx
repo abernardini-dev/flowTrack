@@ -5,6 +5,7 @@ import Registro from './pages/Registro'
 import Banche from './pages/Banche'
 import Categorie from './pages/Categorie'
 import Regole from './pages/Regole'
+import Analisi from './pages/Analisi'
 import Importazione from './pages/Importazione'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/banche" element={<Banche />} />
           <Route path="/categorie" element={<Categorie />} />
           <Route path="/regole" element={<Regole />} />
+          <Route path="/analisi" element={<Analisi />} />
           <Route path="/importazione" element={<Importazione />} />
         </Route>
       </Routes>
