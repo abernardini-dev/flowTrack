@@ -5,6 +5,7 @@ const KEYS = {
   customRules: 'ft_custom_rules',
   customBanks: 'ft_custom_banks',
   transactions: 'ft_transactions',
+  hiddenDefaultCategories: 'ft_hidden_default_categories',
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -52,4 +53,12 @@ export function loadTransactions(): Transaction[] {
 
 export function saveTransactions(transactions: Transaction[]): void {
   setItem(KEYS.transactions, transactions)
+}
+
+export function loadHiddenDefaultCategories(): string[] {
+  return getItem<string[]>(KEYS.hiddenDefaultCategories, [])
+}
+
+export function saveHiddenDefaultCategories(names: string[]): void {
+  setItem(KEYS.hiddenDefaultCategories, names)
 }

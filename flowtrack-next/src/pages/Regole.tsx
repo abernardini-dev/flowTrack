@@ -2,6 +2,8 @@
 
 import { useStore } from '@/lib/store'
 import { useState } from 'react'
+import { Plus, Trash2, ArrowRight, Shield } from 'lucide-react'
+import { CATEGORY_RULES } from '@/lib/defaults'
 
 export default function RegolePage() {
   const customRules = useStore(s => s.customRules)
@@ -36,58 +38,98 @@ export default function RegolePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-slate-800">Regole Personalizzate</h2>
+        <h2 className="text-lg font-bold text-slate-800">Gestione Regole</h2>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Nuova Regola</p>
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="es. rimborso, reso"
+            placeholder="es. rimborso, reso, bonifico"
             value={keywords}
             onChange={e => setKeywords(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            className="flex-1 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400"
+            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400"
           />
           <select
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white outline-none focus:ring-1 focus:ring-indigo-400"
+            className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-1 focus:ring-indigo-400"
           >
             <option value="">Categoria...</option>
-            {allCategories.map(c => <option key={c.name} value={c.name}>{c.icon} {c.name}</option>)}
+            {allCategories.map(c => (
+              <option key={c.name} value={c.name}>{c.icon} {c.name}</option>
+            ))}
           </select>
-          <button onClick={handleAdd} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 w-8 h-8 rounded-lg text-lg font-medium transition-colors flex items-center justify-center">+</button>
+          <button
+            onClick={handleAdd}
+            className="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-1.5 shrink-0"
+          >
+            <Plus size={16} />
+            Aggiungi
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div className="grid grid-cols-1 gap-3">
         {customRules.length === 0 ? (
-          <div className="text-center text-slate-400 py-10 text-xs">Nessuna regola personalizzata.</div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {customRules.map((rule, i) => {
-              const cat = allCategories.find(c => c.name === rule.category)
-              return (
-                <div key={i} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors group">
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <span className="font-medium text-slate-800">{rule.keywords.join(', ')}</span>
-                    <span className="text-slate-400">&rarr;</span>
-                    <span>{cat?.icon} {rule.category}</span>
-                  </div>
-                  <button onClick={() => handleDelete(i)} className="text-red-300 hover:text-red-500 text-sm leading-none opacity-0 group-hover:opacity-100 transition-opacity">&times;</button>
-                </div>
-              )
-            })}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm text-center text-slate-400 py-12 text-sm">
+            Nessuna regola personalizzata. Creane una qui sopra.
           </div>
+        ) : (
+          customRules.map((rule, i) => {
+            const cat = allCategories.find(c => c.name === rule.category)
+            return (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {rule.keywords.map((kw, j) => (
+                      <span key={j} className="bg-slate-100 text-slate-700 text-xs font-medium px-2 py-1 rounded-md">{kw}</span>
+                    ))}
+                  </div>
+                  <ArrowRight size={14} className="text-slate-400 shrink-0" />
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-slate-800 shrink-0">
+                    {cat && <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: cat.color }} />}
+                    {cat?.icon} {rule.category}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleDelete(i)}
+                  className="p-1.5 rounded-lg bg-red-100 text-red-400 hover:bg-red-200 hover:text-red-600 transition-colors cursor-pointer shrink-0"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            )
+          })
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Regole Built-in</p>
-        <div className="text-xs text-slate-500 space-y-1">
-          <p>Le regole built-in categorizzano automaticamente le transazioni in base a parole chiave predefinite per ogni categoria.</p>
-          <p className="mt-2">Le regole personalizzate hanno la precedenza su quelle built-in.</p>
+      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <div className="flex items-center gap-2">
+          <Shield size={16} className="text-slate-400" />
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Regole Built-in</p>
+        </div>
+        <p className="text-xs text-slate-400">Le regole personalizzate hanno la precedenza su quelle built-in.</p>
+        <div className="grid grid-cols-1 gap-3">
+          {CATEGORY_RULES.map((rule, i) => {
+            const cat = allCategories.find(c => c.name === rule.category)
+            return (
+              <div key={i} className="bg-slate-50 rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700 shrink-0 min-w-[160px]">
+                  {cat && <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: cat.color }} />}
+                  {cat?.icon} {rule.category}
+                </span>
+                <ArrowRight size={14} className="text-slate-300 shrink-0" />
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {rule.keywords.map((kw, j) => (
+                    <span key={j} className="bg-white text-slate-500 text-xs px-2 py-1 rounded-md border border-slate-200">{kw}</span>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

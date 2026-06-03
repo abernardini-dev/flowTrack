@@ -363,7 +363,7 @@ export default function RegistroPage() {
       )}
 
       {/* Filter Card */}
-      <div className="bg-stone-50 border border-stone-200 rounded-xl shadow-sm p-5 space-y-4">
+      <div className="bg-stone-50 border border-stone-200 rounded-xl shadow-sm p-5 space-y-2">
         {/* Controls row */}
         <div className="flex w-full items-center gap-2">
           <select value={filterBank} onChange={e => { setFilterBank(e.target.value); setCurrentPage(1) }} className="flex-1 bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400 min-w-0">

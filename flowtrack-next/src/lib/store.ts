@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 import type { Transaction, Category, Rule, Bank, SplitPart, ChartStyle, SortColumn, SortDirection } from '@/types'
 import { DEFAULT_CATEGORIES } from './defaults'
-import { loadCustomCategories, saveCustomCategories, loadCustomRules, saveCustomRules, loadCustomBanks, saveCustomBanks, loadTransactions, saveTransactions } from './storage'
+import { loadCustomCategories, saveCustomCategories, loadCustomRules, saveCustomRules, loadCustomBanks, saveCustomBanks, loadTransactions, saveTransactions, loadHiddenDefaultCategories, saveHiddenDefaultCategories } from './storage'
 import { getAllBanks as getAllBanksUtil } from './importers/bank-utils'
 import { categorize } from './categorizer'
 
@@ -32,6 +32,7 @@ export interface AppState {
   filterMonth: string
   toastMessage: string | null
   toastType: 'success' | 'error' | 'info' | null
+  hiddenDefaultCategories: string[]
 
   getAllCategories: () => Category[]
   getAllBanks: () => Bank[]
@@ -73,6 +74,7 @@ export interface AppState {
   resetAllData: () => void
   showToast: (msg: string, type: 'success' | 'error' | 'info') => void
   hideToast: () => void
+  hideDefaultCategory: (name: string) => void
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -100,8 +102,9 @@ export const useStore = create<AppState>((set, get) => ({
   filterMonth: '',
   toastMessage: null,
   toastType: null,
+  hiddenDefaultCategories: loadHiddenDefaultCategories(),
 
-  getAllCategories: () => [...DEFAULT_CATEGORIES, ...get().customCategories],
+  getAllCategories: () => [...DEFAULT_CATEGORIES.filter(c => !get().hiddenDefaultCategories.includes(c.name)), ...get().customCategories],
   getAllBanks: () => getAllBanksUtil(),
 
   addTransactions: (txs) => {
@@ -154,25 +157,39 @@ export const useStore = create<AppState>((set, get) => ({
 
   renameCustomCategory: (oldName, newName) => {
     set(s => {
-      const cats = s.customCategories.map(c => c.name === oldName ? { ...c, name: newName } : c)
+      const isDefault = DEFAULT_CATEGORIES.some(c => c.name === oldName)
+      let cats = s.customCategories.map(c => c.name === oldName ? { ...c, name: newName } : c)
+      let hidden = s.hiddenDefaultCategories
+      if (isDefault) {
+        const def = DEFAULT_CATEGORIES.find(c => c.name === oldName)!
+        cats = [...cats, { name: newName, color: def.color, icon: def.icon }]
+        hidden = [...hidden, oldName]
+      }
       const rules = s.customRules.map(r => r.category === oldName ? { ...r, category: newName } : r)
       const txs = s.transactions.map(t => t.category === oldName ? { ...t, category: newName } : t)
       saveCustomCategories(cats)
       saveCustomRules(rules)
       saveTransactions(txs)
-      return { customCategories: cats, customRules: rules, transactions: txs }
+      saveHiddenDefaultCategories(hidden)
+      return { customCategories: cats, customRules: rules, transactions: txs, hiddenDefaultCategories: hidden }
     })
   },
 
   deleteCustomCategory: (name) => {
     set(s => {
-      const cats = s.customCategories.filter(c => c.name !== name)
+      const isDefault = DEFAULT_CATEGORIES.some(c => c.name === name)
+      let cats = s.customCategories.filter(c => c.name !== name)
+      let hidden = s.hiddenDefaultCategories
+      if (isDefault) {
+        hidden = [...hidden, name]
+      }
       const rules = s.customRules.filter(r => r.category !== name)
       const txs = s.transactions.map(t => t.category === name ? { ...t, category: 'Altro' } : t)
       saveCustomCategories(cats)
       saveCustomRules(rules)
       saveTransactions(txs)
-      return { customCategories: cats, customRules: rules, transactions: txs }
+      saveHiddenDefaultCategories(hidden)
+      return { customCategories: cats, customRules: rules, transactions: txs, hiddenDefaultCategories: hidden }
     })
   },
 
@@ -278,4 +295,12 @@ export const useStore = create<AppState>((set, get) => ({
 
   showToast: (msg, type) => set({ toastMessage: msg, toastType: type }),
   hideToast: () => set({ toastMessage: null, toastType: null }),
+
+  hideDefaultCategory: (name) => {
+    set(s => {
+      const hidden = [...s.hiddenDefaultCategories, name]
+      saveHiddenDefaultCategories(hidden)
+      return { hiddenDefaultCategories: hidden }
+    })
+  },
 }))
