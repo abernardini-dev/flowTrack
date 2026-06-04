@@ -28,13 +28,13 @@ export const DEFAULT_BANKS: Bank[] = [
 ]
 
 export const CATEGORY_RULES: Rule[] = [
-  { category: 'Alimentari & Spesa', keywords: ['esselunga', 'coop', 'conad', 'carrefour', 'lidl', 'md', 'eurospin', 'supermercato', 'alimentari', 'pam', 'd&g', 'sigma', 'cra', 'tigre'] },
-  { category: 'Intrattenimento', keywords: ['spotify', 'netflix', 'prime video', 'disney', 'dazn', 'cinema', 'now tv', 'sky', 'apple music', 'youtube premium'] },
-  { category: 'Abbonamenti', keywords: ['abbonamento', 'canone', 'palestra', 'vodafone', 'tim', 'wind', 'iliad', 'google one', 'icloud', 'dropbox', 'adobe', 'midjourney', 'chatgpt'] },
-  { category: 'Shopping & Casa', keywords: ['amazon', 'zara', 'h&m', 'ikea', 'ebay', 'leroy merlin', 'mediaworld', 'unieuro', 'decathlon', 'zalando', 'shein'] },
-  { category: 'Trasporti & Auto', keywords: ['eni', 'shell', 'q8', 'telepass', 'trenitalia', 'uber', 'atm', 'tper', 'flixbus', 'mooney', 'autostrada'] },
-  { category: 'Viaggi', keywords: ['hotel', 'booking', 'airbnb', 'volo', 'ryanair', 'expedia', 'viaggio', 'vacanza', 'hostel', 'b&b', 'ibis', 'traghetto', 'nave'] },
-  { category: 'Stipendio & Entrate', keywords: ['stipendio', 'bonifico a vostro favore', 'bonifico ricevuto', 'emolumenti', 'riversamento', 'ricarica', 'accredito', 'rimessa'] },
+  { category: 'Alimentari & Spesa', keywords: ['esselunga', 'coop', 'conad', 'carrefour', 'lidl', 'md', 'eurospin', 'supermercato', 'alimentari', 'pam', 'd&g', 'sigma', 'cra', 'tigre'], matchType: 'contains' },
+  { category: 'Intrattenimento', keywords: ['spotify', 'netflix', 'prime video', 'disney', 'dazn', 'cinema', 'now tv', 'sky', 'apple music', 'youtube premium'], matchType: 'contains' },
+  { category: 'Abbonamenti', keywords: ['abbonamento', 'canone', 'palestra', 'vodafone', 'tim', 'wind', 'iliad', 'google one', 'icloud', 'dropbox', 'adobe', 'midjourney', 'chatgpt'], matchType: 'contains' },
+  { category: 'Shopping & Casa', keywords: ['amazon', 'zara', 'h&m', 'ikea', 'ebay', 'leroy merlin', 'mediaworld', 'unieuro', 'decathlon', 'zalando', 'shein'], matchType: 'contains' },
+  { category: 'Trasporti & Auto', keywords: ['eni', 'shell', 'q8', 'telepass', 'trenitalia', 'uber', 'atm', 'tper', 'flixbus', 'mooney', 'autostrada'], matchType: 'contains' },
+  { category: 'Viaggi', keywords: ['hotel', 'booking', 'airbnb', 'volo', 'ryanair', 'expedia', 'viaggio', 'vacanza', 'hostel', 'b&b', 'ibis', 'traghetto', 'nave'], matchType: 'contains' },
+  { category: 'Stipendio & Entrate', keywords: ['stipendio', 'bonifico a vostro favore', 'bonifico ricevuto', 'emolumenti', 'riversamento', 'ricarica', 'accredito', 'rimessa'], matchType: 'contains' },
 ]
 
 export const ICON_OPTIONS = [

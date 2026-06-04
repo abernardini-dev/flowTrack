@@ -11,6 +11,7 @@ export interface Category {
   name: string
   color: string
   icon: string
+  originDefault?: true
 }
 
 export interface CsvConfig {
@@ -36,6 +37,7 @@ export interface Bank {
 export interface Rule {
   keywords: string[]
   category: string
+  matchType?: 'contains' | 'equals'
 }
 
 export interface SplitPart {

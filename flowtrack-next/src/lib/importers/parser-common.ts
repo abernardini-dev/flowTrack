@@ -2,7 +2,7 @@ import type { Bank, Transaction } from '@/types'
 import { getAllBanks } from './bank-utils'
 import { categorize } from '../categorizer'
 import { uuid, normalizeDate, serializeCellValue, parseItalianNumber, parseStandardNumber, detectDelimiter } from '../utils'
-import { loadCustomRules } from '../storage'
+import { loadCustomRules, loadBuiltinRuleOverrides } from '../storage'
 
 function parsePayPalDate(v: string): string {
   const s = String(v).trim()
@@ -11,7 +11,8 @@ function parsePayPalDate(v: string): string {
   return normalizeDate(serializeCellValue(v))
 }
 
-export function parseRowsFromArray(rows: string[][], bankName: string, customRules: ReturnType<typeof loadCustomRules>): Transaction[] {
+export function parseRowsFromArray(rows: string[][], bankName: string, customRules: ReturnType<typeof loadCustomRules>, builtinOverrides?: Record<string, string[]>): Transaction[] {
+  const overrides = builtinOverrides ?? loadBuiltinRuleOverrides()
   if (rows.length < 2) throw new Error('Il file sembra vuoto o non contiene dati validi.')
 
   function findHeaderRow(rows: string[][]): number {
@@ -54,10 +55,10 @@ export function parseRowsFromArray(rows: string[][], bankName: string, customRul
         const dare = parseItalianNumber(row[dareIdx] ? serializeCellValue(row[dareIdx]) : '0')
         const avere = parseItalianNumber(row[avereIdx] ? serializeCellValue(row[avereIdx]) : '0')
         const amount = dare > 0 ? -dare : avere
-        result.push({ id: uuid(), date: dateVal, description: descVal, amount, bank: bankName, category: categorize(descVal, amount, customRules) })
+        result.push({ id: uuid(), date: dateVal, description: descVal, amount, bank: bankName, category: categorize(descVal, amount, customRules, overrides) })
       } else {
         const amount = parseItalianNumber(serializeCellValue(amountRaw))
-        result.push({ id: uuid(), date: dateVal, description: descVal, amount, bank: bankName, category: categorize(descVal, amount, customRules) })
+        result.push({ id: uuid(), date: dateVal, description: descVal, amount, bank: bankName, category: categorize(descVal, amount, customRules, overrides) })
       }
     }
   } else if (bankId === 'revolut') {
@@ -72,7 +73,7 @@ export function parseRowsFromArray(rows: string[][], bankName: string, customRul
       let amount = amountIdx !== -1 ? parseStandardNumber(serializeCellValue(row[amountIdx])) : 0
       const fee = feeIdx !== -1 ? parseStandardNumber(serializeCellValue(row[feeIdx])) : 0
       const desc = serializeCellValue(row[descIdx]) || 'Transazione Revolut'
-      result.push({ id: uuid(), date: normalizeDate(serializeCellValue(row[dataIdx])), description: desc, amount: amount - fee, bank: bankName, category: categorize(desc, amount - fee, customRules) })
+      result.push({ id: uuid(), date: normalizeDate(serializeCellValue(row[dataIdx])), description: desc, amount: amount - fee, bank: bankName, category: categorize(desc, amount - fee, customRules, overrides) })
     }
   } else if (bankId === 'paypal') {
     const dataIdx = header.findIndex(h => h.includes('data'))
@@ -91,7 +92,7 @@ export function parseRowsFromArray(rows: string[][], bankName: string, customRul
       if (nameIdx !== -1) { const name = serializeCellValue(row[nameIdx]); if (name) description = name + ' - ' }
       description += serializeCellValue(row[descIdx]) || 'Transazione PayPal'
       if (msgIdx !== -1) { const msg = serializeCellValue(row[msgIdx]); if (msg) description += ' (' + msg + ')' }
-      result.push({ id: uuid(), date: parsePayPalDate(row[dataIdx]), description, amount, bank: bankName, category: categorize(description, amount, customRules) })
+      result.push({ id: uuid(), date: parsePayPalDate(row[dataIdx]), description, amount, bank: bankName, category: categorize(description, amount, customRules, overrides) })
     }
   } else if (bankConfig && bankConfig.csvConfig) {
     const cfg = bankConfig.csvConfig
@@ -126,7 +127,7 @@ export function parseRowsFromArray(rows: string[][], bankName: string, customRul
       })
       description = description.replace(/\s+/g, ' ').trim()
       if (!description) description = 'Transazione ' + bankName
-      result.push({ id: uuid(), date: dateVal, description, amount, bank: bankName, category: categorize(description, amount, customRules) })
+      result.push({ id: uuid(), date: dateVal, description, amount, bank: bankName, category: categorize(description, amount, customRules, overrides) })
     }
   }
 

@@ -2,15 +2,16 @@
 
 import { useStore } from '@/lib/store'
 import { useMemo, useState, useEffect, useCallback, Fragment } from 'react'
-import { formatCurrency, formatDate, uuid } from '@/lib/utils'
+import { formatCurrency, formatDate, uuid, hexToPastel } from '@/lib/utils'
 import { getBankStyle } from '@/lib/importers/bank-utils'
 import { categorize } from '@/lib/categorizer'
-import { Search, ChevronDown } from 'lucide-react'
+import { Search, ChevronDown, X, Check, Plus } from 'lucide-react'
 import type { SortColumn, SplitPart } from '@/types'
 
 export default function RegistroPage() {
   const transactions = useStore(s => s.transactions)
   const customRules = useStore(s => s.customRules)
+  const builtinRuleOverrides = useStore(s => s.builtinRuleOverrides)
   const getAllCategories = useStore(s => s.getAllCategories)
   const getAllBanks = useStore(s => s.getAllBanks)
   const addTransaction = useStore(s => s.addTransaction)
@@ -23,6 +24,8 @@ export default function RegistroPage() {
   const selectedIds = useStore(s => s.selectedIds)
   const persistTransactions = useStore(s => s.persistTransactions)
   const showToast = useStore(s => s.showToast)
+  const addCustomRule = useStore(s => s.addCustomRule)
+  const recategorizeAll = useStore(s => s.recategorizeAll)
 
   const [showFilterChips, setShowFilterChips] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -39,6 +42,10 @@ export default function RegistroPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editAllMode, setEditAllMode] = useState(false)
   const [savedPageSize, setSavedPageSize] = useState(25)
+  const [createRuleTx, setCreateRuleTx] = useState<{ description: string; category: string } | null>(null)
+  const [createRuleDesc, setCreateRuleDesc] = useState('')
+  const [createRuleCat, setCreateRuleCat] = useState('')
+  const [createRuleMatchType, setCreateRuleMatchType] = useState<'contains' | 'equals'>('contains')
   const [splittingId, setSplittingId] = useState<string | null>(null)
   const [splitParts, setSplitParts] = useState<SplitPart[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
@@ -338,11 +345,11 @@ export default function RegistroPage() {
           </div>
           <div className="flex flex-col gap-0.5 flex-1 min-w-[160px]">
             <label className="text-[10px] text-slate-500 font-medium">Descrizione</label>
-            <input type="text" placeholder="es. Supermercato" value={addDesc} onChange={e => { setAddDesc(e.target.value); setAddCategory(categorize(e.target.value, parseFloat(addAmount) || -1, customRules)) }} className="bg-slate-100 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" />
+            <input type="text" placeholder="es. Supermercato" value={addDesc} onChange={e => { setAddDesc(e.target.value); setAddCategory(categorize(e.target.value, parseFloat(addAmount) || -1, customRules, builtinRuleOverrides)) }} className="bg-slate-100 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" />
           </div>
           <div className="flex flex-col gap-0.5 w-[100px]">
             <label className="text-[10px] text-slate-500 font-medium">Importo (&euro;)</label>
-            <input type="number" step="0.01" placeholder="0.00" value={addAmount} onChange={e => { setAddAmount(e.target.value); if (addDesc) setAddCategory(categorize(addDesc, parseFloat(e.target.value) || -1, customRules)) }} className="bg-slate-100 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" />
+            <input type="number" step="0.01" placeholder="0.00" value={addAmount} onChange={e => { setAddAmount(e.target.value); if (addDesc) setAddCategory(categorize(addDesc, parseFloat(e.target.value) || -1, customRules, builtinRuleOverrides)) }} className="bg-slate-100 border border-slate-300 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" />
           </div>
           <div className="flex flex-col gap-0.5">
             <label className="text-[10px] text-slate-500 font-medium">Banca</label>
@@ -492,7 +499,7 @@ export default function RegistroPage() {
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-slate-700 max-w-[200px]">
-                      {isEd ? <input type="text" defaultValue={tx.description} className="desc-input w-full bg-transparent border border-indigo-400 rounded px-1.5 py-0.5 text-xs outline-none" /> : <span className="text-xs leading-relaxed truncate block">{tx.description}</span>}
+                      {isEd ? <input type="text" defaultValue={tx.description} className="desc-input w-full bg-transparent border border-indigo-400 rounded px-1.5 py-0.5 text-xs outline-none" /> : <span className="text-xs leading-relaxed truncate block" title={tx.description}>{tx.description}</span>}
                     </td>
                     <td className="px-4 py-2.5 whitespace-nowrap">
                       {isEd ? (
@@ -543,6 +550,7 @@ export default function RegistroPage() {
                           ) : (
                             <>
                               <button className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-indigo-50 flex items-center gap-2" onClick={() => setEditingId(tx.id)}>&#9998; Modifica</button>
+                              <button className="w-full text-left px-3 py-1.5 text-xs text-emerald-600 hover:bg-emerald-50 flex items-center gap-2" onClick={() => { setCreateRuleTx({ description: tx.description, category: tx.category }); setCreateRuleDesc(tx.description); setCreateRuleCat(tx.category); setCreateRuleMatchType('contains') }}>+ Crea Regola</button>
                               <button className="w-full text-left px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-50 flex items-center gap-2" onClick={() => startSplit(tx.id)}>&#8621; Split</button>
                               <button className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2" onClick={() => { if (confirm(`Eliminare "${tx.description}"?`)) { deleteTransaction(tx.id); showToast('Transazione eliminata', 'info') } }}>&#10005; Elimina</button>
                             </>
@@ -619,6 +627,83 @@ export default function RegistroPage() {
           <button onClick={clearSelectedIds} className="text-sm text-slate-500 hover:text-slate-700 px-2 py-1.5 transition-colors">Annulla</button>
         </div>
       )}
+
+      {createRuleTx && (
+        <div
+          className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+          onClick={() => setCreateRuleTx(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="font-semibold text-slate-800">Crea regola da transazione</p>
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1">Descrizione</p>
+                <input
+                  type="text"
+                  value={createRuleDesc}
+                  onChange={e => setCreateRuleDesc(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400"
+                />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1">Categoria</p>
+                <select
+                  value={createRuleCat}
+                  onChange={e => setCreateRuleCat(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white outline-none focus:ring-1 focus:ring-indigo-400"
+                >
+                  {allCategories.map(c => (
+                    <option key={c.name} value={c.name}>{c.icon} {c.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">Tipo di corrispondenza</p>
+              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 w-fit">
+                <button
+                  onClick={() => setCreateRuleMatchType('contains')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${createRuleMatchType === 'contains' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Contenuta
+                </button>
+                <button
+                  onClick={() => setCreateRuleMatchType('equals')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${createRuleMatchType === 'equals' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Uguale
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setCreateRuleTx(null)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  const kw = createRuleDesc.trim().toLowerCase()
+                  if (!kw) { showToast('Inserisci una descrizione valida.', 'error'); return }
+                  if (!createRuleCat) { showToast('Seleziona una categoria.', 'error'); return }
+                  addCustomRule({ keywords: [kw], category: createRuleCat, matchType: createRuleMatchType })
+                  setCreateRuleTx(null)
+                  recategorizeAll()
+                  showToast(`Regola creata: ${createRuleMatchType === 'contains' ? 'Contenuta' : 'Uguale'} "${kw}" → ${createRuleCat}`, 'success')
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus size={14} />
+                Crea Regola
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -645,13 +730,4 @@ function saveEditSingle(id: string) {
   store.showToast('Transazione modificata.', 'success')
 }
 
-function hexToPastel(hex: string): { backgroundColor: string; color: string } {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  const darken = (c: number) => Math.max(0, Math.round(c * 0.55))
-  return {
-    backgroundColor: `rgba(${r},${g},${b},0.15)`,
-    color: `rgb(${darken(r)},${darken(g)},${darken(b)})`,
-  }
-}
+

@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 import type { Transaction, Category, Rule, Bank, SplitPart, ChartStyle, SortColumn, SortDirection } from '@/types'
 import { DEFAULT_CATEGORIES } from './defaults'
-import { loadCustomCategories, saveCustomCategories, loadCustomRules, saveCustomRules, loadCustomBanks, saveCustomBanks, loadTransactions, saveTransactions, loadHiddenDefaultCategories, saveHiddenDefaultCategories } from './storage'
+import { loadCustomCategories, saveCustomCategories, loadCustomRules, saveCustomRules, loadCustomBanks, saveCustomBanks, loadTransactions, saveTransactions, loadHiddenDefaultCategories, saveHiddenDefaultCategories, loadBuiltinRuleOverrides, saveBuiltinRuleOverrides } from './storage'
 import { getAllBanks as getAllBanksUtil } from './importers/bank-utils'
 import { categorize } from './categorizer'
 
@@ -33,6 +33,7 @@ export interface AppState {
   toastMessage: string | null
   toastType: 'success' | 'error' | 'info' | null
   hiddenDefaultCategories: string[]
+  builtinRuleOverrides: Record<string, string[]>
 
   getAllCategories: () => Category[]
   getAllBanks: () => Bank[]
@@ -45,8 +46,12 @@ export interface AppState {
   renameCustomCategory: (oldName: string, newName: string) => void
   deleteCustomCategory: (name: string) => void
   updateCategoryIcon: (name: string, icon: string) => void
+  updateCategoryColor: (name: string, color: string) => void
   addCustomRule: (rule: Rule) => void
+  updateCustomRule: (index: number, rule: Rule) => void
   deleteCustomRule: (index: number) => void
+  updateBuiltinRuleKeywords: (category: string, keywords: string[]) => void
+  resetBuiltinRules: () => void
   addCustomBank: (bank: Bank) => void
   updateCustomBank: (index: number, bank: Partial<Bank>) => void
   deleteCustomBank: (index: number) => void
@@ -72,6 +77,7 @@ export interface AppState {
   setFilterMonth: (v: string) => void
   resetFilters: () => void
   resetAllData: () => void
+  resetDefaultCategories: () => void
   showToast: (msg: string, type: 'success' | 'error' | 'info') => void
   hideToast: () => void
   hideDefaultCategory: (name: string) => void
@@ -103,6 +109,7 @@ export const useStore = create<AppState>((set, get) => ({
   toastMessage: null,
   toastType: null,
   hiddenDefaultCategories: loadHiddenDefaultCategories(),
+  builtinRuleOverrides: loadBuiltinRuleOverrides(),
 
   getAllCategories: () => [...DEFAULT_CATEGORIES.filter(c => !get().hiddenDefaultCategories.includes(c.name)), ...get().customCategories],
   getAllBanks: () => getAllBanksUtil(),
@@ -157,12 +164,12 @@ export const useStore = create<AppState>((set, get) => ({
 
   renameCustomCategory: (oldName, newName) => {
     set(s => {
-      const isDefault = DEFAULT_CATEGORIES.some(c => c.name === oldName)
+      const isDefault = !s.customCategories.some(c => c.name === oldName) && DEFAULT_CATEGORIES.some(c => c.name === oldName)
       let cats = s.customCategories.map(c => c.name === oldName ? { ...c, name: newName } : c)
       let hidden = s.hiddenDefaultCategories
       if (isDefault) {
         const def = DEFAULT_CATEGORIES.find(c => c.name === oldName)!
-        cats = [...cats, { name: newName, color: def.color, icon: def.icon }]
+        cats = [...cats, { name: newName, color: def.color, icon: def.icon, originDefault: true }]
         hidden = [...hidden, oldName]
       }
       const rules = s.customRules.map(r => r.category === oldName ? { ...r, category: newName } : r)
@@ -195,9 +202,37 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateCategoryIcon: (name, icon) => {
     set(s => {
-      const cats = s.customCategories.map(c => c.name === name ? { ...c, icon } : c)
+      const alreadyCustom = s.customCategories.some(c => c.name === name)
+      let cats = s.customCategories
+      let hidden = s.hiddenDefaultCategories
+      if (!alreadyCustom && DEFAULT_CATEGORIES.some(c => c.name === name)) {
+        const def = DEFAULT_CATEGORIES.find(c => c.name === name)!
+        cats = [...cats, { name, color: def.color, icon, originDefault: true }]
+        hidden = [...hidden, name]
+      } else {
+        cats = cats.map(c => c.name === name ? { ...c, icon } : c)
+      }
       saveCustomCategories(cats)
-      return { customCategories: cats }
+      saveHiddenDefaultCategories(hidden)
+      return { customCategories: cats, hiddenDefaultCategories: hidden }
+    })
+  },
+
+  updateCategoryColor: (name, color) => {
+    set(s => {
+      const alreadyCustom = s.customCategories.some(c => c.name === name)
+      let cats = s.customCategories
+      let hidden = s.hiddenDefaultCategories
+      if (!alreadyCustom && DEFAULT_CATEGORIES.some(c => c.name === name)) {
+        const def = DEFAULT_CATEGORIES.find(c => c.name === name)!
+        cats = [...cats, { name, color, icon: def.icon, originDefault: true }]
+        hidden = [...hidden, name]
+      } else {
+        cats = cats.map(c => c.name === name ? { ...c, color } : c)
+      }
+      saveCustomCategories(cats)
+      saveHiddenDefaultCategories(hidden)
+      return { customCategories: cats, hiddenDefaultCategories: hidden }
     })
   },
 
@@ -209,12 +244,33 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 
+  updateCustomRule: (index, rule) => {
+    set(s => {
+      const updated = s.customRules.map((r, i) => i === index ? rule : r)
+      saveCustomRules(updated)
+      return { customRules: updated }
+    })
+  },
+
   deleteCustomRule: (index) => {
     set(s => {
       const updated = s.customRules.filter((_, i) => i !== index)
       saveCustomRules(updated)
       return { customRules: updated }
     })
+  },
+
+  updateBuiltinRuleKeywords: (category, keywords) => {
+    set(s => {
+      const updated = { ...s.builtinRuleOverrides, [category]: keywords }
+      saveBuiltinRuleOverrides(updated)
+      return { builtinRuleOverrides: updated }
+    })
+  },
+
+  resetBuiltinRules: () => {
+    saveBuiltinRuleOverrides({})
+    set({ builtinRuleOverrides: {} })
   },
 
   addCustomBank: (bank) => {
@@ -242,10 +298,10 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   recategorizeAll: () => {
-    const { transactions, customRules } = get()
+    const { transactions, customRules, builtinRuleOverrides } = get()
     const updated = transactions.map(t => ({
       ...t,
-      category: categorize(t.description, t.amount, customRules),
+      category: categorize(t.description, t.amount, customRules, builtinRuleOverrides),
     }))
     saveTransactions(updated)
     set({ transactions: updated })
@@ -291,6 +347,16 @@ export const useStore = create<AppState>((set, get) => ({
   resetAllData: () => {
     saveTransactions([])
     set({ transactions: [], selectedIds: new Set() })
+  },
+
+  resetDefaultCategories: () => {
+    set(s => {
+      const defaultNames = DEFAULT_CATEGORIES.map(c => c.name)
+      const cats = s.customCategories.filter(c => !defaultNames.includes(c.name) && !c.originDefault)
+      saveCustomCategories(cats)
+      saveHiddenDefaultCategories([])
+      return { customCategories: cats, hiddenDefaultCategories: [] }
+    })
   },
 
   showToast: (msg, type) => set({ toastMessage: msg, toastType: type }),

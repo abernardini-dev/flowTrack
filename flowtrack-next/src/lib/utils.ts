@@ -64,6 +64,17 @@ export function detectDelimiter(line: string): string {
   return best
 }
 
+export function hexToPastel(hex: string): { backgroundColor: string; color: string } {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const darken = (c: number) => Math.max(0, Math.round(c * 0.55))
+  return {
+    backgroundColor: `rgba(${r},${g},${b},0.15)`,
+    color: `rgb(${darken(r)},${darken(g)},${darken(b)})`,
+  }
+}
+
 export function serializeCellValue(v: unknown): string {
   if (v == null) return ''
   if (v instanceof Date) {

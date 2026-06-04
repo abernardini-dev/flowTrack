@@ -6,6 +6,7 @@ const KEYS = {
   customBanks: 'ft_custom_banks',
   transactions: 'ft_transactions',
   hiddenDefaultCategories: 'ft_hidden_default_categories',
+  builtinRuleOverrides: 'ft_builtin_rule_overrides',
 } as const
 
 function getItem<T>(key: string, fallback: T): T {
@@ -61,4 +62,12 @@ export function loadHiddenDefaultCategories(): string[] {
 
 export function saveHiddenDefaultCategories(names: string[]): void {
   setItem(KEYS.hiddenDefaultCategories, names)
+}
+
+export function loadBuiltinRuleOverrides(): Record<string, string[]> {
+  return getItem<Record<string, string[]>>(KEYS.builtinRuleOverrides, {})
+}
+
+export function saveBuiltinRuleOverrides(overrides: Record<string, string[]>): void {
+  setItem(KEYS.builtinRuleOverrides, overrides)
 }
